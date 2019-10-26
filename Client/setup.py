@@ -7,15 +7,12 @@ from tablut_player import __version__
 with open('README.md') as f:
     README = f.read()
 
-with open('../LICENSE') as f:
-    LICENSE = f.read()
 
 setup(
     name='tablut_player',
     version=__version__,
     description='Fundamentals of Artificial Intelligence and Knowledge Representation assignement at UNIBO',
     long_description=README,
-    license=LICENSE,
     author='Leonardo Calbi, Alessio Falai',
     author_email='leonardo.calbi@studio.unibo.it, alessio.falai@studio.unibo.it',
     classifiers=[
