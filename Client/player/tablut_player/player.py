@@ -1,8 +1,6 @@
 import socket
 import struct
 import json
-from .data_output_stream import DataOutputStream
-from .data_input_stream import DataInputStream
 
 HOST = '127.0.0.1'  # The server's hostname or IP address
 PORT = 5800        # The port used by the server
