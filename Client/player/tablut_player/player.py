@@ -2,14 +2,12 @@ import socket
 import struct
 import json
 
-HOST = '127.0.0.1'  # The server's hostname or IP address
-PORT = 5800        # The port used by the server
+import tablut_player
 
 
-def main():
-
+def test():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((HOST, PORT))
+        s.connect((tablut_player.SERVER_SOCK, 5800))
         name = 'CalbiFala'
         s.sendall(struct.pack('>i', len(name.encode('utf-8'))))
         s.sendall(name.encode('utf-8'))
