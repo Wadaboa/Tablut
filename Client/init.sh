@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Python virtual environment
 _ENVIRONMENT_PATH="venv"
 python3 -m venv $_ENVIRONMENT_PATH
