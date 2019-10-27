@@ -4,7 +4,7 @@ The `Server` side is written in `Java 8`, so you'll need `JDK 8` to use it.\
 The `Client` side is written in `Python 3`, so you'll need to install it properly on your system.	
 
 ## Installation
-To install the client/server softwares and their dependencies follow the guidelines specified in the sub-directories [`Client`](Client/README.md) and [`Server`](https://github.com/AGalassi/TablutCompetition/README.md).
+To install the client/server softwares and their dependencies follow the guidelines specified in the sub-directories [`Client`](Client/README.md) and [`Server`](Server/README.md).
 
 ## Server execution
 If you have `ANT` installed on your system, just run:
