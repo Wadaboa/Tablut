@@ -5,7 +5,7 @@ Please, make sure to install this specific Python version on your system, to ens
 ## Installation
 
 In order to correctly install this Tablut player follow the guidelines specified 
-in the `Client` parent directory.\
+in the `Client/` parent directory.\
 If everything went fine, now you should be able to execute the player 
 by running `tablut_player` on your terminal.
 
