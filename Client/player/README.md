@@ -13,7 +13,7 @@ by running `tablut_player` on your terminal.
 This Tablut player requires the 3 mandatory parameters upon execution, in the following order:
 1. `role`: Tablut player role, `White` or `Black`
 2. `timeout`: Integer value, which is the given time to compute each move
-3. `server_sock`: String representing the socket (ip, port) where the server is running
+3. `server_ip`: String representing the IP address where the server is running
 
 It is also possible to specify the following optional parameters:
 1. `--debug` or `-d`: Run the command in verbose mode

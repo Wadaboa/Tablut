@@ -13,6 +13,6 @@ In order to correctly install this Tablut client, do the following:
 Run [`./CalbiFalai.sh`](CalbiFalai.sh) with the following 3 mandatory parameters:
 1. Role: `White` or `Black`
 2. Timeout: Given time to compute each move
-3. Server address: Socket `ip:port` where the server is running
+3. Server address: IP address where the server is running
 
 For example, you could execute the client with a command like `./CalbiFalai.sh White 60 localhost:8080`.

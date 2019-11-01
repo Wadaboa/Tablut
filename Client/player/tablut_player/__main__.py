@@ -18,12 +18,12 @@ def parse_args():
         help='tablut player role'
     )
     parser.add_argument(
-        dest='timeout', action='store',
-        help='given time to compute each move'
+        '-t', '--timeout', dest='timeout', action='store',
+        help='given time to compute each move', default=60
     )
     parser.add_argument(
-        dest='server_sock', action='store',
-        help='tablut server socket address'
+        '-s', '--server-ip', dest='server_ip', action='store',
+        help='tablut server ip address', default='127.0.0.1'
     )
     parser.add_argument(
         '-d', '--debug', dest='debug', action='store_true',
@@ -31,9 +31,10 @@ def parse_args():
     )
     args = parser.parse_args()
     tablut_player.TIMEOUT = args.timeout
-    tablut_player.SERVER_SOCK = args.server_sock
+    tablut_player.SERVER_IP = args.server_ip
     tablut_player.DEBUG = args.debug
     role = args.role
+    tablut_player.player.test()
 
 
 def main():

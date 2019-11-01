@@ -7,7 +7,7 @@ import tablut_player
 
 def test():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((tablut_player.SERVER_SOCK, 5800))
+        s.connect((tablut_player.SERVER_IP, 5800))
         name = 'CalbiFala'
         s.sendall(struct.pack('>i', len(name.encode('utf-8'))))
         s.sendall(name.encode('utf-8'))
