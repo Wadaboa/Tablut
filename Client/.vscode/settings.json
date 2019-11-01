@@ -18,7 +18,7 @@
 		"player/dist/": true,
 		"player/tablut_player.egg-info/": true
 	},
-	"python.pythonPath": "/Users/Jobs/Desktop/UNIBO/Primo anno/Fundamentals of Artificial Intelligence and Knowledge Representation/Challenges/Tablut/Client/venv/bin/python3",
+	"python.pythonPath": "venv/bin/python",
 	"python.formatting.provider": "autopep8",
 	"python.formatting.autopep8Path": "venv/bin/autopep8",
 	"python.formatting.autopep8Args": ["--max-line-length=80"],
