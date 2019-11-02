@@ -2,7 +2,7 @@
 
 # Python virtual environment
 _ENVIRONMENT_PATH="venv"
-python3 -m venv $_ENVIRONMENT_PATH
+python3.7 -m venv $_ENVIRONMENT_PATH
 . "$_ENVIRONMENT_PATH"/bin/activate
 
 pip install wheel

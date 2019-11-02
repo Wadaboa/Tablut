@@ -5,6 +5,8 @@ Utility functions
 
 import tablut_player
 
+__all__ = ['remove_unwanted_seq']
+
 
 def remove_unwanted_seq(seq, unwanted):
     '''

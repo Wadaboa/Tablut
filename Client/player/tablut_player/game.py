@@ -9,8 +9,7 @@ from enum import Enum
 from typing import overload
 
 import tablut_player
-from tablut_player import remove_unwanted_seq
-
+from .utils import *
 
 inf = float('inf')
 GameState = namedtuple('GameState', 'to_move, utility, board, moves')
@@ -360,6 +359,7 @@ class TablutBoard():
         player_pawns = self.player_pawns(player_type)
         neighbors = neighboring_pawns(to_move, other_player_pawns)
         for n in neighbors:
+            pass
             # TODO
 
 
