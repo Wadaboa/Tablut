@@ -173,11 +173,230 @@ class TablutBoard():
         TablutBoardPosition(row=8, col=5)
     ]
 
-    def __init__(self, pawns=None):
-        if pawns is None:
-            self.pawns = self._init_pawns()
+    @classmethod
+    def moves(cls, pawns, pawn_type, pawn_coords):
+        '''
+        Return a list of tuples of coordinates representing every possibile
+        new position of the given pawn
+        '''
+        positions = []
+        for i in range(cls.SIZE):
+            positions.append(
+                TablutBoardPosition(row=i, col=pawn_coords.col)
+            )
+            positions.append(
+                TablutBoardPosition(row=pawn_coords.col, col=i)
+            )
+
+        unwanted_positions = list(pawns.values())
+        if pawn_type in (TablutPawnType.WHITE, TablutPawnType.KING):
+            unwanted_positions.extend(cls.CAMPS)
         else:
-            self.pawns = pawns
+            unwanted_positions.append(cls.CASTLE)
+            if pawn_coords not in cls.CAMPS:
+                unwanted_positions.extend(cls.CAMPS)
+
+        positions = cls._reachable_positions(
+            pawn_coords, unwanted_positions, positions
+        )
+        moves = []
+        for p in positions:
+            moves.append((pawn_coords, p))
+        return moves
+
+    @classmethod
+    def _pawn_direction(cls, initial_pawn_coords, final_pawn_coords):
+        '''
+        Given two pawn coordinates, return its move direction
+        '''
+        if initial_pawn_coords.row == final_pawn_coords.row:
+            return (
+                TablutPawnDirection.LEFT if (
+                    final_pawn_coords.col < initial_pawn_coords.col
+                ) else TablutPawnDirection.RIGHT
+            )
+        elif initial_pawn_coords.col == final_pawn_coords.col:
+            return (
+                TablutPawnDirection.UP if (
+                    final_pawn_coords.row < initial_pawn_coords.row
+                ) else TablutPawnDirection.DOWN
+            )
+        return None
+
+    @classmethod
+    def _blocked_positions(cls, pawn_coords, pawn_direction):
+        '''
+        Given a pawn position and a pawn direction, return every
+        unreachable board position
+        '''
+        unreachable = []
+        if pawn_direction == TablutPawnDirection.LEFT:
+            for j in range(pawn_coords.col):
+                unreachable.append(
+                    TablutBoardPosition(row=pawn_coords.row, col=j)
+                )
+        elif pawn_direction == TablutPawnDirection.RIGHT:
+            for j in range(pawn_coords.col + 1, cls.SIZE):
+                unreachable.append(
+                    TablutBoardPosition(row=pawn_coords.row, col=j)
+                )
+        elif pawn_direction == TablutPawnDirection.UP:
+            for i in range(pawn_coords.row):
+                unreachable.append(
+                    TablutBoardPosition(row=i, col=pawn_coords.col)
+                )
+        elif pawn_direction == TablutPawnDirection.DOWN:
+            for i in range(pawn_coords.row + 1, cls.SIZE):
+                unreachable.append(
+                    TablutBoardPosition(row=i, col=pawn_coords.col)
+                )
+        return unreachable
+
+    @classmethod
+    def _reachable_positions(cls, pawn_coords, unwanted_positions, moves):
+        '''
+        Return all the valid moves available, starting from the given
+        pawn position
+        '''
+        unreachable = unwanted_positions
+        for u in unwanted_positions:
+            pawn_direction = cls._pawn_direction(pawn_coords, u)
+            if pawn_direction is not None:
+                unreachable.append(
+                    cls._blocked_positions(pawn_coords, pawn_direction)
+                )
+        return remove_unwanted_seq(moves, unreachable)
+
+    @classmethod
+    def move(cls, pawns, player_type, move):
+        '''
+        Apply the given move
+        '''
+        new_pawns = pawns.copy()
+        pawn_type = from_player_to_pawn_type(player_type)
+        from_move, to_move = move
+        found = False
+        for i, pawn in enumerate(new_pawns[pawn_type]):
+            if pawn == from_move:
+                new_pawns[pawn_type][i] = to_move
+                found = True
+                break
+        if not found and player_type == TablutPlayerType.WHITE:
+            pawn_type = TablutPawnType.KING
+            if new_pawns[pawn_type] == [from_move]:
+                new_pawns[pawn_type] = [to_move]
+        return cls._remove_dead_pawns(new_pawns, player_type, to_move)
+
+    @classmethod
+    def player_pawns(cls, pawns, player_type):
+        '''
+        '''
+        pawn_type = from_player_to_pawn_type(player_type)
+        player_pawns = pawns[pawn_type]
+        if pawn_type == TablutPawnType.WHITE:
+            player_pawns.extend(pawns[TablutPawnType.KING])
+        return player_pawns
+
+    @classmethod
+    def _remove_pawns(cls, pawns, player_type, to_remove):
+        '''
+        '''
+        pawn_type = from_player_to_pawn_type(player_type)
+        pawns[pawn_type] = remove_unwanted_seq(
+            pawns[pawn_type], to_remove)
+        if pawn_type == TablutPawnType.WHITE:
+            pawns[TablutPawnType.KING] = remove_unwanted_seq(
+                pawns[TablutPawnType.KING], to_remove)
+        return pawns
+
+    @classmethod
+    def king_position(cls, pawns):
+        return (
+            pawns[TablutPawnType.KING][0]
+            if len(pawns[TablutPawnType.KING]) == 1
+            else None
+        )
+
+    @classmethod
+    def k_neighbors(cls, pawn, k=1):
+        '''
+        '''
+        if isinstance(pawn, list):
+            pawn = pawn[0]
+        left_pawn = TablutBoardPosition(row=pawn.row, col=pawn.col - k)
+        right_pawn = TablutBoardPosition(row=pawn.row, col=pawn.col + k)
+        up_pawn = TablutBoardPosition(row=pawn.row - k, col=pawn.col)
+        down_pawn = TablutBoardPosition(row=pawn.row + k, col=pawn.col)
+        return [left_pawn, right_pawn, up_pawn, down_pawn]
+
+    @classmethod
+    def _remove_dead_pawns(cls, pawns, my_type, moved_pawn):
+        '''
+        '''
+
+        def dead_pawns(pawn, enemy_pawns, my_pawns):
+            '''
+            '''
+            one_neighbors = cls.k_neighbors(pawn, k=1)
+            two_neighbors = cls.k_neighbors(pawn, k=2)
+            dead = []
+            pawns = flatten([my_pawns, cls.CAMPS, cls.CASTLE])
+            for op, tp in zip(one_neighbors, two_neighbors):
+                if op in enemy_pawns and tp in pawns:
+                    dead.append(op)
+            return dead
+
+        def king_capture(pawns, enemy_pawns, my_pawns):
+            king = pawns[TablutPawnType.KING]
+            king_neighbors = cls.k_neighbors(king, k=1)
+            if cls.CASTLE in king_neighbors or king == [cls.CASTLE]:
+                enemy_pawns.remove(king)
+                if cls.CASTLE in king_neighbors:
+                    king_neighbors.remove(cls.CASTLE)
+                if all(p in my_pawns for p in king_neighbors):
+                    pawns[TablutPawnType.KING] = []
+            return pawns, enemy_pawns
+
+        enemy_type = other_player(my_type)
+        enemy_pawns = cls.player_pawns(pawns, enemy_type)
+        my_pawns = cls.player_pawns(pawns, my_type)
+        if enemy_type == TablutPlayerType.WHITE:
+            pawns, enemy_pawns = king_capture(pawns, enemy_pawns, my_pawns)
+        dead = dead_pawns(moved_pawn, enemy_pawns, my_pawns)
+        return cls._remove_pawns(pawns, enemy_type, dead)
+
+
+class TablutGame(Game):
+    '''
+    Tablut game representation
+    '''
+    WHITE_GOAL = [
+        TablutBoardPosition(row=0, col=1),
+        TablutBoardPosition(row=0, col=2),
+        TablutBoardPosition(row=0, col=6),
+        TablutBoardPosition(row=0, col=7),
+        TablutBoardPosition(row=7, col=1),
+        TablutBoardPosition(row=7, col=2),
+        TablutBoardPosition(row=7, col=6),
+        TablutBoardPosition(row=7, col=7),
+        TablutBoardPosition(row=1, col=0),
+        TablutBoardPosition(row=2, col=0),
+        TablutBoardPosition(row=6, col=0),
+        TablutBoardPosition(row=7, col=0),
+        TablutBoardPosition(row=1, col=7),
+        TablutBoardPosition(row=2, col=7),
+        TablutBoardPosition(row=6, col=7),
+        TablutBoardPosition(row=7, col=7)
+    ]
+
+    def __init__(self):
+        board = TablutBoard()
+        self.initial = GameState(
+            to_move=TablutPlayerType.WHITE,
+            utility=0,
+            board=board,
+            move=self.moves(board, TablutPlayerType.WHITE)
+        )
 
     def _init_pawns(self):
         '''
@@ -202,192 +421,63 @@ class TablutBoard():
         pawns[TablutPawnType.BLACK] = self.CAMPS
 
         # King
-        pawns[TablutPawnType.KING] = self.CASTLE
+        pawns[TablutPawnType.KING] = [self.CASTLE]
 
         return pawns
 
+    def actions(self, state):
+        return state.move
+
+    def result(self, state, action):
+
+        state.board.move(action)
+        state.to_move = other_player(state.to_move)
+        state.utility = self
+
+    def utility(self, state, player):
+        return (
+            0 if not self.terminal_test(state)
+            else 1 if (
+                (player == TablutPlayerType.WHITE and
+                 state.board.king_position() in self.WHITE_GOAL) or
+                (player == TablutPlayerType.BLACK and
+                 state.board.king_position() is None)
+            )
+            else -1
+        )
+
+    def terminal_test(self, state):
+        return (
+            state.board.king_position() is None or
+            state.board.king_position() in self.WHITE_GOAL
+        )
+
+    def value(self, state):
+        pass
+
     @overload
-    def moves(self):
+    def moves(self, board):
         '''
         Return a list of tuples of coordinates representing every possibile
         new position for each pawn
         '''
         moves = []
-        moves.append(self.moves(TablutPlayerType.WHITE))
-        moves.append(self.moves(TablutPlayerType.BLACK))
+        moves.append(self.moves(board, TablutPlayerType.WHITE))
+        moves.append(self.moves(board, TablutPlayerType.BLACK))
 
     @overload
-    def moves(self, player_type):
+    def moves(self, board, player_type):
         '''
         Return a list of tuples of coordinates representing every possibile
         new position for each pawn of the given player
         '''
         moves = []
         pawn_type = from_player_to_pawn_type(player_type)
-        for p in self.pawns[pawn_type]:
+        for p in board.pawns[pawn_type]:
             moves.append(
-                self.moves(pawn_type, p)
+                board.moves(pawn_type, p)
             )
         if pawn_type == TablutPawnType.WHITE:
-            moves.extend(self.moves(pawn_type, self.pawns[TablutPawnType.KING]))
+            moves.extend(board.moves(
+                pawn_type, board.pawns[TablutPawnType.KING]))
         return moves
-
-    @overload
-    def moves(self, pawn_type, pawn_coords):
-        '''
-        Return a list of tuples of coordinates representing every possibile
-        new position of the given pawn
-        '''
-        positions = []
-        for i in range(self.SIZE):
-            positions.append(
-                TablutBoardPosition(row=i, col=pawn_coords.col)
-            )
-            positions.append(
-                TablutBoardPosition(row=pawn_coords.col, col=i)
-            )
-
-        unwanted_positions = list(self.pawns.values())
-        if pawn_type in (TablutPawnType.WHITE, TablutPawnType.KING):
-            unwanted_positions.extend(self.CAMPS)
-        else:
-            unwanted_positions.append(self.CASTLE)
-
-        positions = self.reachable_positions(
-            pawn_coords, unwanted_positions, positions
-        )
-        moves = []
-        for p in positions:
-            moves.append((pawn_coords, p))
-        return moves
-
-    def pawn_direction(self, initial_pawn_coords, final_pawn_coords):
-        '''
-        Given two pawn coordinates, return its move direction
-        '''
-        if initial_pawn_coords.row == final_pawn_coords.row:
-            return (
-                TablutPawnDirection.LEFT if (
-                    final_pawn_coords.col < initial_pawn_coords.col
-                ) else TablutPawnDirection.RIGHT
-            )
-        elif initial_pawn_coords.col == final_pawn_coords.col:
-            return (
-                TablutPawnDirection.UP if (
-                    final_pawn_coords.row < initial_pawn_coords.row
-                ) else TablutPawnDirection.DOWN
-            )
-        return None
-
-    def blocked_positions(self, pawn_coords, pawn_direction):
-        '''
-        Given a pawn position and a pawn direction, return every
-        unreachable board position
-        '''
-        unreachable = []
-        if pawn_direction == TablutPawnDirection.LEFT:
-            for j in range(pawn_coords.col):
-                unreachable.append(
-                    TablutBoardPosition(row=pawn_coords.row, col=j)
-                )
-        elif pawn_direction == TablutPawnDirection.RIGHT:
-            for j in range(pawn_coords.col + 1, self.SIZE):
-                unreachable.append(
-                    TablutBoardPosition(row=pawn_coords.row, col=j)
-                )
-        elif pawn_direction == TablutPawnDirection.UP:
-            for i in range(pawn_coords.row):
-                unreachable.append(
-                    TablutBoardPosition(row=i, col=pawn_coords.col)
-                )
-        elif pawn_direction == TablutPawnDirection.DOWN:
-            for i in range(pawn_coords.row + 1, self.SIZE):
-                unreachable.append(
-                    TablutBoardPosition(row=i, col=pawn_coords.col)
-                )
-        return unreachable
-
-    def reachable_positions(self, pawn_coords, unwanted_positions, moves):
-        '''
-        Return all the valid moves available, starting from the given
-        pawn position
-        '''
-        unreachable = unwanted_positions
-        for u in unwanted_positions:
-            pawn_direction = self.pawn_direction(pawn_coords, u)
-            if pawn_direction is not None:
-                unreachable.append(
-                    self.blocked_positions(pawn_coords, pawn_direction)
-                )
-        return remove_unwanted_seq(moves, unreachable)
-
-    def move(self, player_type, move):
-        '''
-        Apply the given move
-        '''
-        pawn_type = from_player_to_pawn_type(player_type)
-        from_move, to_move = move
-        found = False
-        for i, pawn in enumerate(self.pawns[pawn_type]):
-            if pawn == from_move:
-                self.pawns[pawn_type][i] = to_move
-                found = True
-                break
-        if not found and player_type == TablutPlayerType.WHITE:
-            pawn_type = TablutPawnType.KING
-            if self.pawns[pawn_type] == from_move:
-                self.pawns[pawn_type] = to_move
-
-    def player_pawns(self, player_type):
-        pawn_type = from_player_to_pawn_type(player_type)
-        pawns = self.pawns[pawn_type]
-        if pawn_type == TablutPawnType.WHITE:
-            pawns.extend(self.pawns[TablutPawnType.KING])
-        return pawns
-
-    def is_hungry(self, player_type, pawn_index, to_move):
-
-        def neighboring_pawns(pawn, pawns):
-            left_pawn = TablutBoardPosition(row=pawn.row, col=pawn.col - 1)
-            right_pawn = TablutBoardPosition(row=pawn.row, col=pawn.col + 1)
-            up_pawn = TablutBoardPosition(row=pawn.row - 1, col=pawn.col)
-            down_pawn = TablutBoardPosition(row=pawn.row + 1, col=pawn.col)
-            neighbors = [left_pawn, right_pawn, up_pawn, down_pawn]
-            return [p for p in pawns if p in neighbors]
-
-        other_player_pawns = self.player_pawns(other_player(player_type))
-        player_pawns = self.player_pawns(player_type)
-        neighbors = neighboring_pawns(to_move, other_player_pawns)
-        for n in neighbors:
-            pass
-            # TODO
-
-
-class TablutGame(Game):
-    '''
-    Tablut game representation
-    '''
-
-    def __init__(self):
-        self.board = TablutBoard()
-        self.state = GameState(
-            to_move=TablutPlayerType.WHITE,
-            utility=0,
-            board=self.board,
-            move=self.board.moves(TablutPlayerType.WHITE)
-        )
-
-    def actions(self, state):
-        return state.move
-
-    def result(self, state, action):
-        pass
-
-    def utility(self, state, player):
-        pass
-
-    def terminal_test(self, state):
-        pass
-
-    def value(self, state):
-        pass
