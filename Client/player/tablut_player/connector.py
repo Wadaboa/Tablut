@@ -7,11 +7,11 @@ import struct
 import json
 
 
-def connect(sock, ip, port):
+def connect(sock, ip_addr, port):
     '''
-    Bind the given socket to (ip, port)
+    Bind the given socket to (ip_addr, port)
     '''
-    sock.connect((ip, port))
+    sock.connect((ip_addr, port))
 
 
 def send_name(sock, name):
@@ -29,7 +29,7 @@ def send_action(sock, action, turn):
     action_dict = {
         "from": from_action,
         "to": to_action,
-        "turn": turn
+        "turn": turn[0]
     }
     json_str = json.dumps(action_dict)
     return send_str(sock, json_str)
@@ -37,7 +37,6 @@ def send_action(sock, action, turn):
 
 def receive_state(sock):
     json_str = receive_str(sock)
-    print(json_str)
     json_obj = json.loads(json_str)
     return json_obj["board"], json_obj["turn"]
 

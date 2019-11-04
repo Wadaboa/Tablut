@@ -10,6 +10,7 @@ import random
 import tablut_player.config as conf
 import tablut_player.connector as conn
 import tablut_player.game_utils as gutils
+import tablut_player.utils as utils
 from tablut_player.game import TablutGame
 
 
@@ -63,26 +64,25 @@ def main():
     game = TablutGame(initial_pawns=pawns, to_move=to_move)
     game_state = game.initial
     while True:
-        my_move = random.choice(game_state.moves)  # strategia
+        my_move = utils.get_from_set(game_state.moves)  # strategia
         game_state = game.result(game_state, my_move)
-        print(f'MY MOVE: {my_move}')
         write_action(sock, my_move, game_state.to_move)
-        # game.display(game_state)
-        if game.terminal_test(game_state):
+        game.display(game_state)
+        _, turn = read_state(sock)
+        if turn is None or game.terminal_test(game_state):
             break
-        _, _ = read_state(sock)
-        new_pawns, _ = read_state(sock)
+        new_pawns, turn = read_state(sock)
         enemy_move = gutils.from_pawns_to_move(
             game_state.pawns, new_pawns, game_state.to_move
         )
-        print(f'ENEMY MOVE: {enemy_move}')
         game_state = game.result(game_state, enemy_move)
-        # game.display(game_state)
-        if game.terminal_test(game_state):
+        game.display(game_state)
+        if turn is None or game.terminal_test(game_state):
             break
     win = game.utility(
         game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
     )
+    sock.close()
     print(win)
 
 

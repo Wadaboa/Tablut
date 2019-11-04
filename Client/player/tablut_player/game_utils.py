@@ -139,7 +139,7 @@ def from_server_state_to_pawns(board, turn):
         for j, elem in enumerate(row):
             pawn_type = TablutPawnType.value_of(elem)
             if pawn_type is not None:
-                pawns.setdefault(pawn_type, []).append(
+                pawns.setdefault(pawn_type, set()).add(
                     TablutBoardPosition(row=i, col=j)
                 )
     return pawns, to_move
@@ -151,11 +151,9 @@ def from_pawns_to_move(old_pawns, new_pawns, player_type):
     '''
     pawn_types = from_player_to_pawn_types(player_type)
     for pawn_type in pawn_types:
-        old_pawns_set = set(old_pawns[pawn_type])
-        new_pawns_set = set(new_pawns[pawn_type])
-        from_move = old_pawns_set.difference(new_pawns_set)
+        from_move = old_pawns[pawn_type].difference(new_pawns[pawn_type])
         if len(from_move) > 0:
-            to_move = new_pawns_set.difference(old_pawns_set)
+            to_move = new_pawns[pawn_type].difference(old_pawns[pawn_type])
     return (from_move.pop(), to_move.pop())
 
 

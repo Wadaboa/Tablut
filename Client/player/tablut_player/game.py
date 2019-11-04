@@ -85,7 +85,7 @@ class TablutGame(Game):
     Tablut game representation
     '''
 
-    WHITE_GOAL = [
+    WHITE_GOAL = {
         TablutBoardPosition(row=0, col=1),
         TablutBoardPosition(row=0, col=2),
         TablutBoardPosition(row=0, col=6),
@@ -102,7 +102,7 @@ class TablutGame(Game):
         TablutBoardPosition(row=2, col=7),
         TablutBoardPosition(row=6, col=7),
         TablutBoardPosition(row=7, col=7)
-    ]
+    }
 
     def __init__(self, initial_pawns=None, to_move=TablutPlayerType.WHITE):
         if initial_pawns is None:
@@ -121,7 +121,7 @@ class TablutGame(Game):
         pawns = {}
 
         # White pawns
-        white_pawns_positions = [
+        white_pawns_positions = {
             TablutBoardPosition(row=2, col=4),
             TablutBoardPosition(row=3, col=4),
             TablutBoardPosition(row=5, col=4),
@@ -130,14 +130,14 @@ class TablutGame(Game):
             TablutBoardPosition(row=4, col=3),
             TablutBoardPosition(row=4, col=5),
             TablutBoardPosition(row=4, col=6)
-        ]
+        }
         pawns[TablutPawnType.WHITE] = white_pawns_positions
 
         # Black pawns
         pawns[TablutPawnType.BLACK] = TablutBoard.CAMPS
 
         # King
-        pawns[TablutPawnType.KING] = [TablutBoard.CASTLE]
+        pawns[TablutPawnType.KING] = {TablutBoard.CASTLE}
 
         return pawns
 
@@ -198,18 +198,18 @@ class TablutGame(Game):
         Return a list of tuples of coordinates representing every possibile
         new position for each pawn
         '''
-        moves = []
-        moves.extend(self._moves(pawns, TablutPlayerType.WHITE))
-        moves.extend(self._moves(pawns, TablutPlayerType.BLACK))
+        moves = set()
+        moves.update(self._moves(pawns, TablutPlayerType.WHITE))
+        moves.update(self._moves(pawns, TablutPlayerType.BLACK))
 
     def _moves(self, pawns, player_type):
         '''
         Return a list of tuples of coordinates representing every possibile
         new position for each pawn of the given player
         '''
-        moves = []
+        moves = set()
         pawn_types = gutils.from_player_to_pawn_types(player_type)
         for pawn_type in pawn_types:
             for pawn in pawns[pawn_type]:
-                moves.extend(TablutBoard.moves(pawns, pawn_type, pawn))
+                moves.update(TablutBoard.moves(pawns, pawn))
         return moves
