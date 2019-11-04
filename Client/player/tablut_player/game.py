@@ -1,12 +1,19 @@
 '''
+Module containing a generic game representation,
+partially taken from AIMA library.
 '''
+
 
 from typing import overload
 
-import tablut_player
-
-from .game_utils import *
-from .board import TablutBoard
+import tablut_player.game_utils as gutils
+from tablut_player.game_utils import (
+    TablutBoardPosition,
+    TablutPawnType,
+    TablutPlayerType,
+    GameState
+)
+from tablut_player.board import TablutBoard
 
 
 class Game:
@@ -77,6 +84,7 @@ class TablutGame(Game):
     '''
     Tablut game representation
     '''
+
     WHITE_GOAL = [
         TablutBoardPosition(row=0, col=1),
         TablutBoardPosition(row=0, col=2),
@@ -96,13 +104,14 @@ class TablutGame(Game):
         TablutBoardPosition(row=7, col=7)
     ]
 
-    def __init__(self):
-        initial_pawns = self._init_pawns()
+    def __init__(self, initial_pawns=None, to_move=TablutPlayerType.WHITE):
+        if initial_pawns is None:
+            initial_pawns = self._init_pawns()
         self.initial = GameState(
-            to_move=TablutPlayerType.WHITE,
+            to_move=to_move,
             utility=0,
             pawns=initial_pawns,
-            moves=self._moves(initial_pawns, TablutPlayerType.WHITE)
+            moves=self._moves(initial_pawns, to_move)
         )
 
     def _init_pawns(self):
@@ -137,7 +146,7 @@ class TablutGame(Game):
 
     def result(self, state, move):
         pawns = TablutBoard.move(state.pawns, state.to_move, move)
-        to_move = other_player(state.to_move)
+        to_move = gutils.other_player(state.to_move)
         return GameState(
             to_move=to_move,
             utility=self._compute_utility(pawns, state.to_move),
@@ -146,9 +155,17 @@ class TablutGame(Game):
         )
 
     def utility(self, state, player):
+        '''
+        Return 1 if the given player is white and white wins,
+        return -1 if the given player is black and black wins,
+        return 0 otherwise
+        '''
         return -state.utility if player == state.to_move else state.utility
 
     def _compute_utility(self, pawns, player):
+        '''
+        Compute utility value for the given player, with the given pawns
+        '''
         return (
             0 if not self._goal_state(pawns)
             else 1 if (
@@ -161,9 +178,15 @@ class TablutGame(Game):
         )
 
     def terminal_test(self, state):
-        return self._goal_state(state.pawns)
+        '''
+        A state is terminale if one player wins
+        '''
+        return state.utility != 0
 
     def _goal_state(self, pawns):
+        '''
+        A state is a goal state if either the white or the black player wins
+        '''
         return (
             TablutBoard.king_position(pawns) is None or
             TablutBoard.king_position(pawns) in self.WHITE_GOAL
@@ -179,14 +202,13 @@ class TablutGame(Game):
         moves.extend(self._moves(pawns, TablutPlayerType.WHITE))
         moves.extend(self._moves(pawns, TablutPlayerType.BLACK))
 
-    @overload
     def _moves(self, pawns, player_type):
         '''
         Return a list of tuples of coordinates representing every possibile
         new position for each pawn of the given player
         '''
         moves = []
-        pawn_types = from_player_to_pawn_types(player_type)
+        pawn_types = gutils.from_player_to_pawn_types(player_type)
         for pawn_type in pawn_types:
             for pawn in pawns[pawn_type]:
                 moves.extend(TablutBoard.moves(pawns, pawn_type, pawn))

@@ -1,10 +1,16 @@
 '''
+Board game representations module
 '''
 
-import tablut_player
 
-from .utils import *
-from .game_utils import *
+import tablut_player.utils as utils
+import tablut_player.game_utils as gutils
+from tablut_player.game_utils import (
+    TablutBoardPosition,
+    TablutPawnDirection,
+    TablutPawnType,
+    TablutPlayerType
+)
 
 
 class TablutBoard():
@@ -52,6 +58,8 @@ class TablutBoard():
             unwanted_positions.append(cls.CASTLE)
             if pawn_coords not in cls.CAMPS:
                 unwanted_positions.extend(cls.CAMPS)
+
+        unwanted_positions = utils.flatten(unwanted_positions)
 
         positions = cls._reachable_positions(
             pawn_coords, unwanted_positions, positions
@@ -115,14 +123,14 @@ class TablutBoard():
         Return all the valid moves available, starting from the given
         pawn position
         '''
-        unreachable = unwanted_positions
+        unreachables = unwanted_positions.copy()
         for u in unwanted_positions:
             pawn_direction = cls._pawn_direction(pawn_coords, u)
             if pawn_direction is not None:
-                unreachable.append(
+                unreachables.extend(
                     cls._blocked_positions(pawn_coords, pawn_direction)
                 )
-        return remove_unwanted_seq(moves, unreachable)
+        return utils.remove_unwanted_seq(moves, unreachables)
 
     @classmethod
     def move(cls, pawns, player_type, move):
@@ -130,7 +138,7 @@ class TablutBoard():
         Apply the given move
         '''
         new_pawns = pawns.copy()
-        pawn_types = from_player_to_pawn_types(player_type)
+        pawn_types = gutils.from_player_to_pawn_types(player_type)
         from_move, to_move = move
         for pawn_type in pawn_types:
             for i, pawn in enumerate(new_pawns[pawn_type]):
@@ -143,7 +151,7 @@ class TablutBoard():
     def player_pawns(cls, pawns, player_type):
         '''
         '''
-        pawn_types = from_player_to_pawn_types(player_type)
+        pawn_types = gutils.from_player_to_pawn_types(player_type)
         player_pawns = []
         for pawn_type in pawn_types:
             player_pawns.extend(pawns[pawn_type])
@@ -153,9 +161,11 @@ class TablutBoard():
     def _remove_pawns(cls, pawns, player_type, to_remove):
         '''
         '''
-        pawn_types = from_player_to_pawn_types(player_type)
+        pawn_types = gutils.from_player_to_pawn_types(player_type)
         for pawn_type in pawn_types:
-            pawns[pawn_type] = remove_unwanted_seq(pawns[pawn_type], to_remove)
+            pawns[pawn_type] = utils.remove_unwanted_seq(
+                pawns[pawn_type], to_remove
+            )
         return pawns
 
     @classmethod
@@ -189,7 +199,7 @@ class TablutBoard():
             one_neighbors = cls.k_neighbors(pawn, k=1)
             two_neighbors = cls.k_neighbors(pawn, k=2)
             dead = []
-            pawns = flatten([my_pawns, cls.CAMPS, cls.CASTLE])
+            pawns = utils.flatten([my_pawns, cls.CAMPS, cls.CASTLE])
             for op, tp in zip(one_neighbors, two_neighbors):
                 if op in enemy_pawns and tp in pawns:
                     dead.append(op)
@@ -206,7 +216,7 @@ class TablutBoard():
                     pawns[TablutPawnType.KING] = []
             return pawns, enemy_pawns
 
-        enemy_type = other_player(my_type)
+        enemy_type = gutils.other_player(my_type)
         enemy_pawns = cls.player_pawns(pawns, enemy_type)
         my_pawns = cls.player_pawns(pawns, my_type)
         if enemy_type == TablutPlayerType.WHITE:

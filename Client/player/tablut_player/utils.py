@@ -3,11 +3,6 @@ Utility functions
 '''
 
 
-import tablut_player
-
-__all__ = ['remove_unwanted_seq', 'flatten']
-
-
 def remove_unwanted_seq(seq, unwanted):
     '''
     Remove every item in unwanted list from seq, if present
