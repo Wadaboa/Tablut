@@ -17,7 +17,7 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3.7'
     ],
-    python_requires='==3.7.4',
+    python_requires='==3.7.*',
     keywords='unibo ai tablut',
     packages=find_packages(),
     entry_points={
