@@ -2,6 +2,9 @@
 Board game representations module
 '''
 
+from PyQt5 import QtWidgets
+from PyQt5.QtGui import QColor, QPen
+from PyQt5.QtCore import Qt, QRectF
 
 import tablut_player.utils as utils
 import tablut_player.game_utils as gutils
@@ -224,3 +227,108 @@ class TablutBoard():
             pawns, enemy_pawns = king_capture(pawns, enemy_pawns, my_pawns)
         dead = dead_pawns(moved_pawn, enemy_pawns, my_pawns)
         return cls._remove_pawns(pawns, enemy_type, dead)
+
+
+class TablutBoardGUIScene(QtWidgets.QGraphicsScene):
+    '''
+    Tablut board GUI, used for debugging purposes
+    '''
+
+    CELL_SIZE = 40
+    _COLOR_FROM_PAWN = {
+        TablutPawnType.WHITE: Qt.white,
+        TablutPawnType.BLACK: Qt.black,
+        TablutPawnType.KING: Qt.yellow
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lines = []
+        self.markers = []
+        self.draw_grid()
+
+    def draw_grid(self):
+        '''
+        Draw Tablut grid
+        '''
+        width = TablutBoard.SIZE * self.CELL_SIZE
+        height = TablutBoard.SIZE * self.CELL_SIZE
+        self.setSceneRect(0, 0, width, height)
+        self.setItemIndexMethod(QtWidgets.QGraphicsScene.NoIndex)
+
+        pen = QPen(QColor(0, 0, 0), 2, Qt.SolidLine)
+
+        for x in range(0, TablutBoard.SIZE + 1):
+            xc = x * self.CELL_SIZE
+            self.lines.append(self.addLine(xc, 0, xc, height, pen))
+
+        for y in range(0, TablutBoard.SIZE + 1):
+            yc = y * self.CELL_SIZE
+            self.lines.append(self.addLine(0, yc, width, yc, pen))
+
+    def set_visible(self, visible=True):
+        '''
+        Show/hide grid lines
+        '''
+        for line in self.lines:
+            line.setVisible(visible)
+
+    def delete_grid(self):
+        '''
+        Delete grid lines
+        '''
+        for line in self.lines:
+            self.removeItem(line)
+        del self.lines[:]
+
+    def set_opacity(self, opacity):
+        '''
+        Set grid lines opacity
+        '''
+        for line in self.lines:
+            line.setOpacity(opacity)
+
+    def draw_rect(self, coords, color=Qt.white):
+        '''
+        Add a marker in the given position
+        '''
+        row, col = coords
+        top_left_x = col * self.CELL_SIZE
+        top_left_y = row * self.CELL_SIZE
+        self.markers.append(
+            self.addRect(
+                QRectF(
+                    top_left_x, top_left_y,
+                    self.CELL_SIZE, self.CELL_SIZE
+                ),
+                color, color
+            )
+        )
+
+    def delete_rects(self):
+        '''
+        Delete grid markers
+        '''
+        for rect in self.markers:
+            self.removeItem(rect)
+        del self.markers[:]
+
+    def draw_pawns(self, pawns):
+        '''
+        Add the specified markers to the grid
+        '''
+        for pawn_type in pawns:
+            color = self._COLOR_FROM_PAWN[pawn_type]
+            for pawn in pawns[pawn_type]:
+                self.draw_rect(
+                    coords=(pawn.row, pawn.col),
+                    color=color
+                )
+
+    def set_pawns(self, pawns):
+        '''
+        Update the grid with the specified markers
+        '''
+        self.delete_rects()
+        self.draw_pawns(pawns)
+        self.update()

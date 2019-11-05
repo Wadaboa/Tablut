@@ -22,7 +22,7 @@ setup(
     packages=find_packages(),
     entry_points={
         'console_scripts': [
-            'tablut_player = tablut_player.__main__:main'
+            'tablut_player = tablut_player.__main__:entry'
         ]
     }
 )

@@ -1,3 +1,4 @@
 pip==19.2.3
 pylint==2.4.3
 autopep8==1.4.4
+PyQt5==5.13.2
