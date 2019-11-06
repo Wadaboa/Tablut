@@ -8,14 +8,14 @@ import socket
 import sys
 import threading
 
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtCore
 
 import tablut_player.config as conf
 import tablut_player.connector as conn
 import tablut_player.game_utils as gutils
 import tablut_player.utils as utils
 from tablut_player.game import TablutGame
-from tablut_player.board import TablutBoardGUIScene
+from tablut_player.board import TablutBoardGUI
 
 
 PLAYER_NAME = 'CalbiFalai'
@@ -57,16 +57,20 @@ def entry():
     parse_args()
     if conf.DEBUG:
         app = QtWidgets.QApplication(sys.argv)
-        gui_scene = TablutBoardGUIScene()
+        gui_scene = TablutBoardGUI()
         gui_view = QtWidgets.QGraphicsView()
+        gui_view.setWindowTitle('Tablut')
+        gui_view.setWindowFlags(QtCore.Qt.FramelessWindowHint)
         gui_view.setScene(gui_scene)
         gui_view.show()
         thr = threading.Thread(target=play, args=(gui_scene,))
         thr.daemon = True
         thr.start()
         app.exec_()
+        thr.join()
     else:
         play()
+    sys.exit()
 
 
 def play(gui_scene=None):
@@ -111,7 +115,6 @@ def play(gui_scene=None):
     )
     print(win)
     sock.close()
-    sys.exit()
 
 
 def read_state(sock):

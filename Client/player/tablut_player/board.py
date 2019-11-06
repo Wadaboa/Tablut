@@ -4,7 +4,7 @@ Board game representations module
 
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QColor, QPen
-from PyQt5.QtCore import Qt, QRectF
+from PyQt5.QtCore import Qt, QRectF, QEvent
 
 import tablut_player.utils as utils
 import tablut_player.game_utils as gutils
@@ -229,7 +229,7 @@ class TablutBoard():
         return cls._remove_pawns(pawns, enemy_type, dead)
 
 
-class TablutBoardGUIScene(QtWidgets.QGraphicsScene):
+class TablutBoardGUI(QtWidgets.QGraphicsScene):
     '''
     Tablut board GUI, used for debugging purposes
     '''
@@ -246,6 +246,14 @@ class TablutBoardGUIScene(QtWidgets.QGraphicsScene):
         self.lines = []
         self.markers = []
         self.draw_grid()
+        self.setBackgroundBrush(Qt.red)
+        self.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if event.type() in (QEvent.MouseButtonPress,
+                            QEvent.MouseButtonDblClick):
+            return False
+        return super(TablutBoardGUI, self).eventFilter(obj, event)
 
     def draw_grid(self):
         '''
@@ -288,9 +296,26 @@ class TablutBoardGUIScene(QtWidgets.QGraphicsScene):
         for line in self.lines:
             line.setOpacity(opacity)
 
+    def draw_ellipse(self, coords, color=Qt.white):
+        '''
+        Add an ellipsoidal marker in the given position
+        '''
+        row, col = coords
+        top_left_x = col * self.CELL_SIZE
+        top_left_y = row * self.CELL_SIZE
+        self.markers.append(
+            self.addEllipse(
+                QRectF(
+                    top_left_x, top_left_y,
+                    self.CELL_SIZE, self.CELL_SIZE
+                ),
+                color, color
+            )
+        )
+
     def draw_rect(self, coords, color=Qt.white):
         '''
-        Add a marker in the given position
+        Add a rectangular marker in the given position
         '''
         row, col = coords
         top_left_x = col * self.CELL_SIZE
@@ -313,6 +338,20 @@ class TablutBoardGUIScene(QtWidgets.QGraphicsScene):
             self.removeItem(rect)
         del self.markers[:]
 
+    def draw_special_cells(self):
+        '''
+        Draw camps and castle
+        '''
+        for camp in TablutBoard.CAMPS:
+            self.draw_rect(
+                coords=(camp.row, camp.col),
+                color=Qt.gray
+            )
+        self.draw_rect(
+            coords=(TablutBoard.CASTLE.row, TablutBoard.CASTLE.col),
+            color=Qt.green
+        )
+
     def draw_pawns(self, pawns):
         '''
         Add the specified markers to the grid
@@ -320,7 +359,7 @@ class TablutBoardGUIScene(QtWidgets.QGraphicsScene):
         for pawn_type in pawns:
             color = self._COLOR_FROM_PAWN[pawn_type]
             for pawn in pawns[pawn_type]:
-                self.draw_rect(
+                self.draw_ellipse(
                     coords=(pawn.row, pawn.col),
                     color=color
                 )
