@@ -85,24 +85,6 @@ class TablutGame(Game):
     Tablut game representation
     '''
 
-    WHITE_GOAL = {
-        TablutBoardPosition(row=0, col=1),
-        TablutBoardPosition(row=0, col=2),
-        TablutBoardPosition(row=0, col=6),
-        TablutBoardPosition(row=0, col=7),
-        TablutBoardPosition(row=7, col=1),
-        TablutBoardPosition(row=7, col=2),
-        TablutBoardPosition(row=7, col=6),
-        TablutBoardPosition(row=7, col=7),
-        TablutBoardPosition(row=1, col=0),
-        TablutBoardPosition(row=2, col=0),
-        TablutBoardPosition(row=6, col=0),
-        TablutBoardPosition(row=7, col=0),
-        TablutBoardPosition(row=1, col=7),
-        TablutBoardPosition(row=2, col=7),
-        TablutBoardPosition(row=6, col=7),
-        TablutBoardPosition(row=7, col=7)
-    }
     MAX_REPEATED_STATES = 4
 
     def __init__(self, initial_pawns=None, to_move=TablutPlayerType.WHITE):
@@ -115,6 +97,7 @@ class TablutGame(Game):
             moves=self._moves(initial_pawns, to_move),
             old_state=None
         )
+        self.turn = 0
 
     def _init_pawns(self):
         '''
@@ -162,6 +145,12 @@ class TablutGame(Game):
                 return False
         return True
 
+    def inc_turn(self):
+        '''
+        Next turn
+        '''
+        self.turn += 1
+
     def actions(self, state):
         return state.moves
 
@@ -192,7 +181,7 @@ class TablutGame(Game):
             0 if not self._goal_state(pawns)
             else 1 if (
                 (player == TablutPlayerType.WHITE and
-                 TablutBoard.king_position(pawns) in self.WHITE_GOAL) or
+                 TablutBoard.king_position(pawns) in TablutBoard.WHITE_GOALS) or
                 (player == TablutPlayerType.BLACK and
                  TablutBoard.king_position(pawns) is None)
             )
@@ -211,7 +200,7 @@ class TablutGame(Game):
         '''
         return (
             TablutBoard.king_position(pawns) is None or
-            TablutBoard.king_position(pawns) in self.WHITE_GOAL
+            TablutBoard.king_position(pawns) in TablutBoard.WHITE_GOALS
         )
 
     @overload

@@ -103,6 +103,12 @@ class TablutBoardPosition:
         self.row = row
         self.col = col
 
+    def distance(self, other):
+        '''
+        Manhattan distance
+        '''
+        return abs(self.row - other.row) + abs(self.col - other.col)
+
     def __eq__(self, position):
         return (
             isinstance(position, TablutBoardPosition) and

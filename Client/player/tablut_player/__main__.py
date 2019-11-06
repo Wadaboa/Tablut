@@ -92,8 +92,10 @@ def play(gui_scene=None):
     game = TablutGame(initial_pawns=pawns, to_move=to_move)
     game_state = game.initial
     while True:
-        my_move = utils.get_from_set(game_state.moves)  # strategia
-        #my_move = alphabeta_player(game, game_state)
+        game.inc_turn()
+        print(f'Turno {game.turn}')
+        # my_move = utils.get_from_set(game_state.moves)  # random player
+        my_move = alphabeta_player(game, game_state)
         game_state = game.result(game_state, my_move)
         write_action(sock, my_move, game_state.to_move)
         game.display(game_state)
