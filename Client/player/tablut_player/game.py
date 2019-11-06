@@ -11,7 +11,7 @@ from tablut_player.game_utils import (
     TablutBoardPosition,
     TablutPawnType,
     TablutPlayerType,
-    GameState
+    TablutGameState
 )
 from tablut_player.board import TablutBoard
 
@@ -103,15 +103,17 @@ class TablutGame(Game):
         TablutBoardPosition(row=6, col=7),
         TablutBoardPosition(row=7, col=7)
     }
+    MAX_REPEATED_STATES = 4
 
     def __init__(self, initial_pawns=None, to_move=TablutPlayerType.WHITE):
         if initial_pawns is None:
             initial_pawns = self._init_pawns()
-        self.initial = GameState(
+        self.initial = TablutGameState(
             to_move=to_move,
             utility=0,
             pawns=initial_pawns,
-            moves=self._moves(initial_pawns, to_move)
+            moves=self._moves(initial_pawns, to_move),
+            old_state=None
         )
 
     def _init_pawns(self):
@@ -141,17 +143,37 @@ class TablutGame(Game):
 
         return pawns
 
+    def _draw(self, state):
+        '''
+        Check if there is a draw, based on the number of repeated states
+        '''
+        first = state.old_state
+        if first is None:
+            return False
+        second = first.old_state
+        if second is None:
+            return False
+        old = second
+        for i in range(2, self.MAX_REPEATED_STATES):
+            old = old.old_state
+            if old is None or (old is not None and
+                               ((i % 2 == 0 and old != first) or
+                                ((i % 2 != 0 and old != second)))):
+                return False
+        return True
+
     def actions(self, state):
         return state.moves
 
     def result(self, state, move):
         pawns = TablutBoard.move(state.pawns, state.to_move, move)
         to_move = gutils.other_player(state.to_move)
-        return GameState(
+        return TablutGameState(
             to_move=to_move,
             utility=self._compute_utility(pawns, state.to_move),
             pawns=pawns,
-            moves=self._moves(pawns, to_move)
+            moves=self._moves(pawns, to_move),
+            old_state=state
         )
 
     def utility(self, state, player):
@@ -179,9 +201,9 @@ class TablutGame(Game):
 
     def terminal_test(self, state):
         '''
-        A state is terminale if one player wins
+        A state is terminal if one player wins
         '''
-        return state.utility != 0
+        return state.utility != 0 or self._draw(state)
 
     def _goal_state(self, pawns):
         '''

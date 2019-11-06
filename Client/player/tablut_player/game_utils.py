@@ -3,12 +3,43 @@ Helper module, containing shared game utility functions
 '''
 
 
-import json
-from collections import namedtuple
 from enum import Enum
 
 
-GameState = namedtuple('GameState', 'to_move, utility, pawns, moves')
+class TablutGameState:
+    '''
+    Tablut game state
+    '''
+
+    def __init__(self, to_move, utility, pawns, moves, old_state=None):
+        self.to_move = to_move
+        self.utility = utility
+        self.pawns = pawns
+        self.moves = moves
+        self.old_state = old_state
+
+    def __eq__(self, other):
+        return self.pawns == other.pawns and self.to_move == other.to_move
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __repr__(self):
+        rep = ''
+        if self.utility == 0:
+            rep += "Game in progress\n"
+        else:
+            rep += "Game ended\t Winner -> "
+            if self.utility == 1:
+                rep += other_player(self.to_move)
+            else:
+                rep += self.to_move
+            rep += "\n"
+        for pawn_type, pawns in self.pawns.items():
+            rep += f'{pawn_type} pawns: {pawns}\n'
+        rep += f'{self.to_move} player moves: {self.moves}\n'
+        rep += '-' * 100
+        return rep
 
 
 class TablutPawnType(Enum):
@@ -26,6 +57,9 @@ class TablutPawnType(Enum):
             if pawn_type.value == value.capitalize():
                 return pawn_type
         return None
+
+    def __str__(self):
+        return f'{self.value}'
 
     def __repr__(self):
         return f'Pawn: {self.value}'
@@ -45,6 +79,9 @@ class TablutPlayerType(Enum):
             if player_type.value == value.capitalize():
                 return player_type
         return None
+
+    def __str__(self):
+        return f'{self.value}'
 
     def __repr__(self):
         return f'Player: {self.value}'

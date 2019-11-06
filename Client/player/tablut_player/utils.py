@@ -6,6 +6,9 @@ Utility functions
 import copy as cp
 
 
+INF = float('inf')
+
+
 def remove_unwanted_list(seq, unwanted):
     '''
     Remove every item in unwanted list from seq, if present

@@ -16,6 +16,7 @@ import tablut_player.game_utils as gutils
 import tablut_player.utils as utils
 from tablut_player.game import TablutGame
 from tablut_player.board import TablutBoardGUI
+from tablut_player.strategy import minimax_player, alphabeta_player
 
 
 PLAYER_NAME = 'CalbiFalai'
@@ -92,6 +93,7 @@ def play(gui_scene=None):
     game_state = game.initial
     while True:
         my_move = utils.get_from_set(game_state.moves)  # strategia
+        #my_move = alphabeta_player(game, game_state)
         game_state = game.result(game_state, my_move)
         write_action(sock, my_move, game_state.to_move)
         game.display(game_state)
