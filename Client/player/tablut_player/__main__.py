@@ -7,6 +7,7 @@ import argparse
 import socket
 import sys
 import threading
+import _thread
 
 import tablut_player.config as conf
 import tablut_player.connector as conn
@@ -56,31 +57,39 @@ def parse_args():
 
 def entry():
     parse_args()
+    sock = connect()
     if conf.DEBUG:
         app = QtWidgets.QApplication(sys.argv)
         gui_scene = TablutBoardGUI()
         gui_view = QtWidgets.QGraphicsView()
         gui_view.setWindowTitle('Tablut')
-        # gui_view.setWindowFlags(QtCore.Qt.FramelessWindowHint)
         gui_view.setScene(gui_scene)
         gui_view.show()
-        thr = threading.Thread(target=play, args=(gui_scene,))
-        thr.daemon = True
+        thr = threading.Thread(target=play, args=(sock, gui_scene))
         thr.start()
         app.exec_()
         thr.join()
+        del gui_view
+        del gui_scene
     else:
-        play()
-    sys.exit()
+        play(sock)
 
 
-def play(gui_scene=None):
+def connect():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    conn.connect(
-        sock,
-        conf.SERVER_IP,
-        conf.PLAYER_SERVER_PORT
-    )
+    try:
+        conn.connect(
+            sock,
+            conf.SERVER_IP,
+            conf.PLAYER_SERVER_PORT
+        )
+    except ConnectionRefusedError:
+        print('Server is not running. Please, start the server and try again.')
+        sys.exit()
+    return sock
+
+
+def play(sock, gui_scene=None):
     conn.send_name(sock, PLAYER_NAME)
     pawns, to_move = read_state(sock)
     if conf.DEBUG:
@@ -94,7 +103,7 @@ def play(gui_scene=None):
     while True:
         game.inc_turn()
         print(f'Turn {game.turn}')
-        my_move = get_move(game, game_state, conf.MOVE_TIMEOUT-10)
+        my_move = get_move(game, game_state, conf.MOVE_TIMEOUT - 5)
         game_state = game.result(game_state, my_move)
         print(f'My move: {my_move}')
         print(f'King Heu:{strat.king_moves_to_goals_count(game_state.pawns)}')

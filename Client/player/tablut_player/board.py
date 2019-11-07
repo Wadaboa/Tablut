@@ -361,7 +361,7 @@ class TablutBoardGUI(QtWidgets.QGraphicsScene):
     _COLOR_FROM_PAWN = {
         TablutPawnType.WHITE: Qt.white,
         TablutPawnType.BLACK: Qt.black,
-        TablutPawnType.KING: Qt.yellow
+        TablutPawnType.KING: Qt.magenta
     }
 
     def __init__(self, *args, **kwargs):
@@ -369,7 +369,8 @@ class TablutBoardGUI(QtWidgets.QGraphicsScene):
         self.lines = []
         self.markers = []
         self.draw_grid()
-        self.setBackgroundBrush(Qt.red)
+        self.draw_special_cells()
+        self.setBackgroundBrush(QColor(255, 233, 127))
         self.installEventFilter(self)
 
     def eventFilter(self, obj, event):
@@ -382,24 +383,49 @@ class TablutBoardGUI(QtWidgets.QGraphicsScene):
         '''
         Draw Tablut grid
         '''
+        offset_factor = 1.5
+        offset = int(self.CELL_SIZE / offset_factor)
         width = TablutBoard.SIZE * self.CELL_SIZE
         height = TablutBoard.SIZE * self.CELL_SIZE
-        self.setSceneRect(0, 0, width, height)
+        self.setSceneRect(
+            -offset, -offset,
+            width + self.CELL_SIZE, height + self.CELL_SIZE
+        )
         self.setItemIndexMethod(QtWidgets.QGraphicsScene.NoIndex)
+        pen = QPen(Qt.black, 2, Qt.SolidLine)
 
-        pen = QPen(QColor(0, 0, 0), 2, Qt.SolidLine)
+        for index in range(0, TablutBoard.SIZE + 1):
+            coord = index * self.CELL_SIZE
+            self.lines.append(self.add_line(coord, 0, coord, height, pen))
+            self.lines.append(self.add_line(0, coord, width, coord, pen))
+            if index != 0:
+                self.add_text(str(index - 1), - offset, coord - offset)
+                self.add_text(str(index - 1), coord - offset, - offset)
 
-        for x in range(1, TablutBoard.SIZE + 1):
-            xc = x * self.CELL_SIZE
-            self.lines.append(self.addLine(xc, 0, xc, height, pen))
-            text = self.addText(str(x-1))
-            text.setPos(0, xc - self.CELL_SIZE)
+    def add_line(self,
+                 x_top_left, y_top_left,
+                 x_bottom_right, y_bottom_right,
+                 pen, z_value=-1):
+        '''
+        Add a grid line
+        '''
+        line = self.addLine(
+            x_top_left, y_top_left,
+            x_bottom_right, y_bottom_right,
+            pen
+        )
+        line.setZValue(z_value)
+        return line
 
-        for y in range(1, TablutBoard.SIZE + 1):
-            yc = y * self.CELL_SIZE
-            self.lines.append(self.addLine(0, yc, width, yc, pen))
-            text = self.addText(str(y-1))
-            text.setPos(yc - self.CELL_SIZE, 0)
+    def add_text(self, text, x_value, y_value, z_value=1, color=Qt.black):
+        '''
+        Add the given text in the specified position in the grid
+        '''
+        text = self.addText(text)
+        text.setZValue(z_value)
+        text.setDefaultTextColor(color)
+        text.setPos(x_value, y_value)
+        return text
 
     def set_visible(self, visible=True):
         '''
@@ -423,46 +449,46 @@ class TablutBoardGUI(QtWidgets.QGraphicsScene):
         for line in self.lines:
             line.setOpacity(opacity)
 
-    def draw_ellipse(self, coords, color=Qt.white):
+    def draw_ellipse(self, coords, z_value=0, color=Qt.white):
         '''
         Add an ellipsoidal marker in the given position
         '''
         row, col = coords
         top_left_x = col * self.CELL_SIZE
         top_left_y = row * self.CELL_SIZE
-        self.markers.append(
-            self.addEllipse(
-                QRectF(
-                    top_left_x, top_left_y,
-                    self.CELL_SIZE, self.CELL_SIZE
-                ),
-                color, color
-            )
+        ellipse = self.addEllipse(
+            QRectF(
+                top_left_x, top_left_y,
+                self.CELL_SIZE, self.CELL_SIZE
+            ),
+            color, color
         )
+        ellipse.setZValue(z_value)
+        return ellipse
 
-    def draw_rect(self, coords, color=Qt.white):
+    def draw_rect(self, coords, z_value=-2, color=Qt.white):
         '''
         Add a rectangular marker in the given position
         '''
         row, col = coords
         top_left_x = col * self.CELL_SIZE
         top_left_y = row * self.CELL_SIZE
-        self.markers.append(
-            self.addRect(
-                QRectF(
-                    top_left_x, top_left_y,
-                    self.CELL_SIZE, self.CELL_SIZE
-                ),
-                color, color
-            )
+        rect = self.addRect(
+            QRectF(
+                top_left_x, top_left_y,
+                self.CELL_SIZE, self.CELL_SIZE
+            ),
+            color, color
         )
+        rect.setZValue(z_value)
+        return rect
 
-    def delete_rects(self):
+    def delete_markers(self):
         '''
         Delete grid markers
         '''
-        for rect in self.markers:
-            self.removeItem(rect)
+        for marker in self.markers:
+            self.removeItem(marker)
         del self.markers[:]
 
     def draw_special_cells(self):
@@ -472,29 +498,36 @@ class TablutBoardGUI(QtWidgets.QGraphicsScene):
         for camp in TablutBoard.CAMPS:
             self.draw_rect(
                 coords=(camp.row, camp.col),
-                color=Qt.gray
+                color=QColor(128, 128, 128)
+            )
+        for goal in TablutBoard.WHITE_GOALS:
+            self.draw_rect(
+                coords=(goal.row, goal.col),
+                color=QColor(90, 250, 250)
             )
         self.draw_rect(
             coords=(TablutBoard.CASTLE.row, TablutBoard.CASTLE.col),
-            color=Qt.green
+            color=QColor(255, 128, 0)
         )
 
     def draw_pawns(self, pawns):
         '''
-        Add the specified markers to the grid
+        Add the given pawns to the grid
         '''
         for pawn_type in pawns:
             color = self._COLOR_FROM_PAWN[pawn_type]
             for pawn in pawns[pawn_type]:
-                self.draw_ellipse(
-                    coords=(pawn.row, pawn.col),
-                    color=color
+                self.markers.append(
+                    self.draw_ellipse(
+                        coords=(pawn.row, pawn.col),
+                        color=color
+                    )
                 )
 
     def set_pawns(self, pawns):
         '''
-        Update the grid with the specified markers
+        Update the grid with the given pawns
         '''
-        self.delete_rects()
+        self.delete_markers()
         self.draw_pawns(pawns)
         self.update()
