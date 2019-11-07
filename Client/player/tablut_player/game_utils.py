@@ -31,9 +31,9 @@ class TablutGameState:
         else:
             rep += "Game ended\t Winner -> "
             if self.utility == 1:
-                rep += other_player(self.to_move)
+                rep += str(other_player(self.to_move))
             else:
-                rep += self.to_move
+                rep += str(self.to_move)
             rep += "\n"
         for pawn_type, pawns in self.pawns.items():
             rep += f'{pawn_type} pawns: {pawns}\n'
@@ -130,7 +130,7 @@ def from_player_to_pawn_types(player_type):
     Get pawn type from player type
     '''
     return (
-        [TablutPawnType.WHITE, TablutPawnType.KING]
+        [TablutPawnType.KING, TablutPawnType.WHITE]
         if player_type == TablutPlayerType.WHITE
         else [TablutPawnType.BLACK]
     )

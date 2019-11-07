@@ -8,16 +8,16 @@ import socket
 import sys
 import threading
 
-from PyQt5 import QtWidgets, QtCore
-
 import tablut_player.config as conf
 import tablut_player.connector as conn
 import tablut_player.game_utils as gutils
+import tablut_player.strategy as strat
 import tablut_player.utils as utils
-from tablut_player.game import TablutGame
 from tablut_player.board import TablutBoardGUI
-from tablut_player.strategy import minimax_player, alphabeta_player
+from tablut_player.game import TablutGame
+from tablut_player.strategy import get_move
 
+from PyQt5 import QtCore, QtWidgets
 
 PLAYER_NAME = 'CalbiFalai'
 
@@ -61,7 +61,7 @@ def entry():
         gui_scene = TablutBoardGUI()
         gui_view = QtWidgets.QGraphicsView()
         gui_view.setWindowTitle('Tablut')
-        gui_view.setWindowFlags(QtCore.Qt.FramelessWindowHint)
+        # gui_view.setWindowFlags(QtCore.Qt.FramelessWindowHint)
         gui_view.setScene(gui_scene)
         gui_view.show()
         thr = threading.Thread(target=play, args=(gui_scene,))
@@ -93,26 +93,33 @@ def play(gui_scene=None):
     game_state = game.initial
     while True:
         game.inc_turn()
-        print(f'Turno {game.turn}')
-        # my_move = utils.get_from_set(game_state.moves)  # random player
-        my_move = alphabeta_player(game, game_state)
+        print(f'Turn {game.turn}')
+        my_move = get_move(game, game_state, conf.MOVE_TIMEOUT-10)
         game_state = game.result(game_state, my_move)
+        print(f'My move: {my_move}')
+        print(f'King Heu:{strat.king_moves_to_goals_count(game_state.pawns)}')
+        print(f'White Heu:{strat.white_heuristic(game.turn,game_state)}')
+        print(f'Black Heu:{strat.black_heuristic(game.turn,game_state)}')
         write_action(sock, my_move, game_state.to_move)
         game.display(game_state)
-        _, turn = read_state(sock)
+        _, to_move = read_state(sock)
         if conf.DEBUG:
             gui_scene.set_pawns(game_state.pawns)
-        if turn is None or game.terminal_test(game_state):
+        if to_move is None or game.terminal_test(game_state):
             break
-        new_pawns, turn = read_state(sock)
+        new_pawns, to_move = read_state(sock)
         if conf.DEBUG:
             gui_scene.set_pawns(new_pawns)
         enemy_move = gutils.from_pawns_to_move(
             game_state.pawns, new_pawns, game_state.to_move
         )
         game_state = game.result(game_state, enemy_move)
+        print(f'Enemy move: {enemy_move}')
+        print(f'King Heu:{strat.king_moves_to_goals_count(game_state.pawns)}')
+        print(f'White Heu:{strat.white_heuristic(game.turn,game_state)}')
+        print(f'Black Heu:{strat.black_heuristic(game.turn,game_state)}')
         game.display(game_state)
-        if turn is None or game.terminal_test(game_state):
+        if to_move is None or game.terminal_test(game_state):
             break
     win = game.utility(
         game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
@@ -122,10 +129,10 @@ def play(gui_scene=None):
 
 
 def read_state(sock):
-    board, turn = conn.receive_state(sock)
-    return gutils.from_server_state_to_pawns(board, turn)
+    board, to_move = conn.receive_state(sock)
+    return gutils.from_server_state_to_pawns(board, to_move)
 
 
-def write_action(sock, move, turn):
+def write_action(sock, move, to_move):
     action = gutils.from_move_to_server_action(move)
-    conn.send_action(sock, action, gutils.from_player_type_to_role(turn))
+    conn.send_action(sock, action, gutils.from_player_type_to_role(to_move))

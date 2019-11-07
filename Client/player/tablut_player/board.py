@@ -2,22 +2,20 @@
 Board game representations module
 '''
 
-from PyQt5 import QtWidgets
-from PyQt5.QtGui import QColor, QPen
-from PyQt5.QtCore import Qt, QRectF, QEvent
-
-import tablut_player.utils as utils
 import tablut_player.game_utils as gutils
-from tablut_player.game_utils import (
-    TablutBoardPosition,
-    TablutPawnDirection,
-    TablutPawnType,
-    TablutPlayerType
-)
+import tablut_player.utils as utils
+from tablut_player.game_utils import (TablutBoardPosition, TablutPawnDirection,
+                                      TablutPawnType, TablutPlayerType)
+
+from PyQt5 import QtWidgets
+from PyQt5.QtCore import QEvent, QRectF, Qt
+from PyQt5.QtGui import QColor, QPen
 
 
 class TablutBoard():
-
+    '''
+    Tablut board rules and interaction
+    '''
     SIZE = 9
     CASTLE = TablutBoardPosition(row=4, col=4)
     INNER_CAMPS = {
@@ -46,18 +44,18 @@ class TablutBoard():
         TablutBoardPosition(row=0, col=2),
         TablutBoardPosition(row=0, col=6),
         TablutBoardPosition(row=0, col=7),
-        TablutBoardPosition(row=7, col=1),
-        TablutBoardPosition(row=7, col=2),
-        TablutBoardPosition(row=7, col=6),
-        TablutBoardPosition(row=7, col=7),
+        TablutBoardPosition(row=8, col=1),
+        TablutBoardPosition(row=8, col=2),
+        TablutBoardPosition(row=8, col=6),
+        TablutBoardPosition(row=8, col=7),
         TablutBoardPosition(row=1, col=0),
         TablutBoardPosition(row=2, col=0),
         TablutBoardPosition(row=6, col=0),
         TablutBoardPosition(row=7, col=0),
-        TablutBoardPosition(row=1, col=7),
-        TablutBoardPosition(row=2, col=7),
-        TablutBoardPosition(row=6, col=7),
-        TablutBoardPosition(row=7, col=7)
+        TablutBoardPosition(row=1, col=8),
+        TablutBoardPosition(row=2, col=8),
+        TablutBoardPosition(row=6, col=8),
+        TablutBoardPosition(row=7, col=8)
     }
 
     @classmethod
@@ -391,13 +389,17 @@ class TablutBoardGUI(QtWidgets.QGraphicsScene):
 
         pen = QPen(QColor(0, 0, 0), 2, Qt.SolidLine)
 
-        for x in range(0, TablutBoard.SIZE + 1):
+        for x in range(1, TablutBoard.SIZE + 1):
             xc = x * self.CELL_SIZE
             self.lines.append(self.addLine(xc, 0, xc, height, pen))
+            text = self.addText(str(x-1))
+            text.setPos(0, xc - self.CELL_SIZE)
 
-        for y in range(0, TablutBoard.SIZE + 1):
+        for y in range(1, TablutBoard.SIZE + 1):
             yc = y * self.CELL_SIZE
             self.lines.append(self.addLine(0, yc, width, yc, pen))
+            text = self.addText(str(y-1))
+            text.setPos(yc - self.CELL_SIZE, 0)
 
     def set_visible(self, visible=True):
         '''

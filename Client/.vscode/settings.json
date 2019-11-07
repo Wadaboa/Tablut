@@ -1,32 +1,32 @@
 {
-	"editor.rulers": [80],
-	"editor.wordWrap": "on",
-	"editor.wordWrapColumn": 80,
-	"files.exclude": {
-		"venv/": true,
-		"player/__pycache__/": true,
-		"player/tablut_player/__pycache__/": true,
-		"player/build/": true,
-		"player/dist/": true,
-		"player/tablut_player.egg-info/": true
-	},
-	"search.exclude": {
-		"venv/": true,
-		"player/__pycache__/": true,
-		"player/tablut_player/__pycache__/": true,
-		"player/build/": true,
-		"player/dist/": true,
-		"player/tablut_player.egg-info/": true
-	},
-	"python.pythonPath": "${workspaceFolder}/venv",
-	"python.formatting.provider": "autopep8",
-	"python.formatting.autopep8Args": ["--max-line-length=80"],
-	"python.linting.enabled": true,
-	"python.linting.pylintEnabled": true,
-	"python.linting.pylintArgs": [
-		"--extension-pkg-whitelist=PyQt5",
-		"--max-line-length=80",
-		"--disable=W0212,E0202"
-	],
-	"python.linting.pylintUseMinimalCheckers": false
+  "editor.rulers": [80],
+  "editor.wordWrap": "on",
+  "editor.wordWrapColumn": 80,
+  "files.exclude": {
+    "venv/": true,
+    "player/__pycache__/": true,
+    "player/tablut_player/__pycache__/": true,
+    "player/build/": true,
+    "player/dist/": true,
+    "player/tablut_player.egg-info/": true
+  },
+  "search.exclude": {
+    "venv/": true,
+    "player/__pycache__/": true,
+    "player/tablut_player/__pycache__/": true,
+    "player/build/": true,
+    "player/dist/": true,
+    "player/tablut_player.egg-info/": true
+  },
+  "python.pythonPath": "${workspaceFolder}/venv",
+  "python.formatting.provider": "autopep8",
+  "python.formatting.autopep8Args": ["--max-line-length=80"],
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": true,
+  "python.linting.pylintArgs": [
+    "--extension-pkg-whitelist=PyQt5",
+    "--max-line-length=80",
+    "--disable=W0212,E0202"
+  ],
+  "python.linting.pylintUseMinimalCheckers": false
 }
