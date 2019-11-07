@@ -1,8 +1,11 @@
 '''
 Tablut players strategies
 '''
+
+
 import math
 import time
+import random
 
 import tablut_player.game_utils as gutils
 import tablut_player.utils as utils
@@ -10,6 +13,7 @@ from tablut_player.board import TablutBoard
 from tablut_player.game_utils import (TablutBoardPosition, TablutPawnType,
                                       TablutPlayerType)
 from tablut_player.utils import INF
+
 
 BLACK_BEST_POSITIONS = {
     TablutBoardPosition(row=2, col=1),
@@ -199,9 +203,9 @@ def heuristic(turn, state, player):
     return black_heuristic(turn, state)
 
 
-def dumb_heuristic(turn, state, player):
+def dumb_heuristic(state, player):
     '''
-    Test heuristic return only the piece difference between the players
+    Return only the piece difference count between the players
     '''
     return TablutBoard.piece_difference_count(
         state.pawns, player
@@ -231,8 +235,7 @@ def black_heuristic(turn, state):
         )
         value -= 1.5 * king_moves_to_goals_count(state.pawns)
         value += 12 * potential_king_killers_count(state.pawns)
-
-    return value
+    return value + random_perturbation()
 
 
 def white_heuristic(turn, state):
@@ -248,7 +251,7 @@ def white_heuristic(turn, state):
         value += 2 * king_moves_to_goals_count(state.pawns)
     else:
         value += 3 * king_moves_to_goals_count(state.pawns)
-    return value
+    return value + random_perturbation()
 
 
 def king_moves_to_goals_count(pawns):
@@ -260,9 +263,9 @@ def king_moves_to_goals_count(pawns):
     if we are within 1-2 moves to more than one corner
     '''
     king = TablutBoard.king_position(pawns)
-    total = 0.0
     if king is None:
         return -INF
+    total = 0.0
     for goal in TablutBoard.WHITE_GOALS:
         distance = TablutBoard.simulate_distance(pawns, king, goal)
         if distance == 0:
@@ -296,3 +299,19 @@ def potential_king_killers_count(pawns):
         return INF
     killers = TablutBoard.potential_king_killers(pawns)
     return killers * 0.25
+
+
+def board_coverage_count(state):
+    '''
+    Return a value representing the total number of moves available
+    from the new position. Moves that increase board coverage and
+    moves that decrease enemy's board coverage are favored.
+    '''
+    pass
+
+
+def random_perturbation(r=0.1):
+    '''
+    Return a random number in the symmetric interval [-r, r]
+    '''
+    return random.uniform(-r, r)
