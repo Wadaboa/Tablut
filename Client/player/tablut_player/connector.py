@@ -5,6 +5,8 @@ Module that helps connecting to Tablut server
 
 import struct
 import json
+import errno
+import socket
 
 
 def connect(sock, ip_addr, port):
@@ -12,6 +14,30 @@ def connect(sock, ip_addr, port):
     Bind the given socket to (ip_addr, port)
     '''
     sock.connect((ip_addr, port))
+
+
+def is_socket_valid(sock):
+    '''
+    Return True if this socket is connected
+    '''
+    if not sock:
+        return False
+
+    try:
+        sock.getsockname()
+    except sock.error as err:
+        err_type = err.args[0]
+        if err_type == errno.EBADF:  # 9: Bad file descriptor
+            return False
+
+    try:
+        sock.getpeername()
+    except socket.error as err:
+        err_type = err.args[0]
+        if err_type in [errno.EBADF, errno.ENOTCONN]:  # 9: Bad file descriptor.
+            return False  # 107: Transport endpoint is not connected
+
+    return True
 
 
 def send_name(sock, name):

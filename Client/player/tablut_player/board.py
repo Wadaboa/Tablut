@@ -4,8 +4,12 @@ Board game representations module
 
 import tablut_player.game_utils as gutils
 import tablut_player.utils as utils
-from tablut_player.game_utils import (TablutBoardPosition, TablutPawnDirection,
-                                      TablutPawnType, TablutPlayerType)
+from tablut_player.game_utils import (
+    TablutBoardPosition,
+    TablutPawnDirection,
+    TablutPawnType,
+    TablutPlayerType
+)
 
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import QEvent, QRectF, Qt

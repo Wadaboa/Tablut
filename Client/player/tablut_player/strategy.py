@@ -164,6 +164,7 @@ def ucb(n, C=1.4):
 def get_move(game, state, timeout, max_depth=3):
     #move = None
     move = alphabeta_player(game, state, timeout, max_depth)
+    #move = monte_carlo_tree_search(state, game)
     if move is None:
         print('Alphabeta failure')
         move = random_player(state)

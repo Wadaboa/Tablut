@@ -9,6 +9,8 @@ import sys
 import threading
 import _thread
 
+from PyQt5 import QtCore, QtWidgets
+
 import tablut_player.config as conf
 import tablut_player.connector as conn
 import tablut_player.game_utils as gutils
@@ -18,7 +20,6 @@ from tablut_player.board import TablutBoardGUI
 from tablut_player.game import TablutGame
 from tablut_player.strategy import get_move
 
-from PyQt5 import QtCore, QtWidgets
 
 PLAYER_NAME = 'CalbiFalai'
 
@@ -65,6 +66,7 @@ def entry():
         gui_view.setWindowTitle('Tablut')
         gui_view.setScene(gui_scene)
         gui_view.show()
+        sock_checker(sock)
         thr = threading.Thread(target=play, args=(sock, gui_scene))
         thr.start()
         app.exec_()
@@ -73,20 +75,6 @@ def entry():
         del gui_scene
     else:
         play(sock)
-
-
-def connect():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        conn.connect(
-            sock,
-            conf.SERVER_IP,
-            conf.PLAYER_SERVER_PORT
-        )
-    except ConnectionRefusedError:
-        print('Server is not running. Please, start the server and try again.')
-        sys.exit()
-    return sock
 
 
 def play(sock, gui_scene=None):
@@ -135,6 +123,27 @@ def play(sock, gui_scene=None):
     )
     print(win)
     sock.close()
+
+
+def connect():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        conn.connect(
+            sock,
+            conf.SERVER_IP,
+            conf.PLAYER_SERVER_PORT
+        )
+    except ConnectionRefusedError:
+        print('Server is not running. Please, start the server and try again.')
+        sys.exit()
+    return sock
+
+
+def sock_checker(sock):
+    threading.Timer(1, sock_checker, args=(sock, )).start()
+    if not conn.is_socket_valid(sock):
+        _thread.interrupt_main()
+        return False
 
 
 def read_state(sock):
