@@ -47,10 +47,15 @@ def parse_args():
         '-d', '--debug', dest='debug', action='store_true',
         help='run the command in debug mode'
     )
+    parser.add_argument(
+        '-a', '--autoplay', dest='autoplay', action='store_true',
+        help="avoid connecting to the server and play locally with both roles"
+    )
     args = parser.parse_args()
     conf.TIMEOUT = args.timeout
     conf.SERVER_IP = args.server_ip
     conf.DEBUG = args.debug
+    conf.AUTOPLAY = args.autoplay
     conf.PLAYER_ROLE = args.role
     if args.role == conf.BLACK_ROLE:
         conf.PLAYER_SERVER_PORT = conf.BLACK_SERVER_PORT
@@ -58,7 +63,9 @@ def parse_args():
 
 def entry():
     parse_args()
-    sock = connect()
+    sock = None
+    if not conf.AUTOPLAY:
+        sock = connect()
     if conf.DEBUG:
         app = QtWidgets.QApplication(sys.argv)
         gui_scene = TablutBoardGUI()
@@ -66,7 +73,8 @@ def entry():
         gui_view.setWindowTitle('Tablut')
         gui_view.setScene(gui_scene)
         gui_view.show()
-        sock_checker(sock)
+        if not conf.AUTOPLAY:
+            sock_checker(sock)
         thr = threading.Thread(target=play, args=(sock, gui_scene))
         thr.start()
         app.exec_()
@@ -77,17 +85,22 @@ def entry():
         play(sock)
 
 
-def play(sock, gui_scene=None):
-    conn.send_name(sock, PLAYER_NAME)
-    pawns, to_move = read_state(sock)
-    if conf.DEBUG:
-        gui_scene.set_pawns(pawns)
-    if conf.PLAYER_ROLE == conf.BLACK_ROLE:
+def play(sock=None, gui=None):
+    if sock is not None:
+        conn.send_name(sock, PLAYER_NAME)
         pawns, to_move = read_state(sock)
-        if conf.DEBUG:
-            gui_scene.set_pawns(pawns)
-    game = TablutGame(initial_pawns=pawns, to_move=to_move)
+        if gui is not None:
+            gui.set_pawns(pawns)
+        if conf.PLAYER_ROLE == conf.BLACK_ROLE:
+            pawns, to_move = read_state(sock)
+            if gui is not None:
+                gui.set_pawns(pawns)
+        game = TablutGame(initial_pawns=pawns, to_move=to_move)
+    else:
+        game = TablutGame()
     game_state = game.initial
+    if gui is not None:
+        gui.set_pawns(game_state.pawns)
     while True:
         game.inc_turn()
         print(f'Turn {game.turn}')
@@ -97,26 +110,33 @@ def play(sock, gui_scene=None):
         print(f'King Heu:{strat.king_moves_to_goals_count(game_state.pawns)}')
         print(f'White Heu:{strat.white_heuristic(game.turn,game_state)}')
         print(f'Black Heu:{strat.black_heuristic(game.turn,game_state)}')
-        write_action(sock, my_move, game_state.to_move)
+        if sock is not None:
+            write_action(sock, my_move, game_state.to_move)
         game.display(game_state)
-        _, to_move = read_state(sock)
-        if conf.DEBUG:
-            gui_scene.set_pawns(game_state.pawns)
-        if to_move is None or game.terminal_test(game_state):
+        if sock is not None:
+            _, to_move = read_state(sock)
+        if gui is not None:
+            gui.set_pawns(game_state.pawns)
+        if (sock is not None and to_move is None) or game.terminal_test(game_state):
             break
-        new_pawns, to_move = read_state(sock)
-        if conf.DEBUG:
-            gui_scene.set_pawns(new_pawns)
-        enemy_move = gutils.from_pawns_to_move(
-            game_state.pawns, new_pawns, game_state.to_move
-        )
+        if sock is not None:
+            new_pawns, to_move = read_state(sock)
+            if gui is not None:
+                gui.set_pawns(new_pawns)
+                enemy_move = gutils.from_pawns_to_move(
+                    game_state.pawns, new_pawns, game_state.to_move
+                )
+        else:
+            enemy_move = get_move(game, game_state, conf.MOVE_TIMEOUT - 5)
         game_state = game.result(game_state, enemy_move)
+        if gui is not None:
+            gui.set_pawns(game_state.pawns)
         print(f'Enemy move: {enemy_move}')
         print(f'King Heu:{strat.king_moves_to_goals_count(game_state.pawns)}')
         print(f'White Heu:{strat.white_heuristic(game.turn,game_state)}')
         print(f'Black Heu:{strat.black_heuristic(game.turn,game_state)}')
         game.display(game_state)
-        if to_move is None or game.terminal_test(game_state):
+        if (sock is not None and to_move is None) or game.terminal_test(game_state):
             break
     win = game.utility(
         game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)

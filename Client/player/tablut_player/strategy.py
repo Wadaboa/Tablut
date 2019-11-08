@@ -10,8 +10,11 @@ import random
 import tablut_player.game_utils as gutils
 import tablut_player.utils as utils
 from tablut_player.board import TablutBoard
-from tablut_player.game_utils import (TablutBoardPosition, TablutPawnType,
-                                      TablutPlayerType)
+from tablut_player.game_utils import (
+    TablutBoardPosition,
+    TablutPawnType,
+    TablutPlayerType
+)
 from tablut_player.utils import INF
 
 
