@@ -4,6 +4,7 @@ Helper module, containing shared game utility functions
 
 
 from enum import Enum
+import tablut_player.config as conf
 
 
 class TablutGameState:
@@ -123,6 +124,13 @@ class TablutBoardPosition:
 
     def __repr__(self):
         return f'({self.row}, {self.col})'
+
+
+def is_black(player_role):
+    '''
+    Check if the given player is black
+    '''
+    return player_role == conf.BLACK_ROLE
 
 
 def from_player_to_pawn_types(player_type):

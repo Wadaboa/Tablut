@@ -4,24 +4,23 @@ Tablut player entry point
 
 
 import argparse
-import socket
 import sys
 import threading
-import _thread
+import queue
+import traceback
+import time
 
 from PyQt5 import QtCore, QtWidgets
+from concurrent.futures import ThreadPoolExecutor
 
 import tablut_player.config as conf
-import tablut_player.connector as conn
 import tablut_player.game_utils as gutils
 import tablut_player.strategy as strat
 import tablut_player.utils as utils
 from tablut_player.board import TablutBoardGUI
 from tablut_player.game import TablutGame
 from tablut_player.strategy import get_move
-
-
-PLAYER_NAME = 'CalbiFalai'
+from tablut_player.connector import (Connector, is_socket_valid)
 
 
 def parse_args():
@@ -63,9 +62,6 @@ def parse_args():
 
 def entry():
     parse_args()
-    sock = None
-    if not conf.AUTOPLAY:
-        sock = connect()
     if conf.DEBUG:
         app = QtWidgets.QApplication(sys.argv)
         gui_scene = TablutBoardGUI()
@@ -73,92 +69,98 @@ def entry():
         gui_view.setWindowTitle('Tablut')
         gui_view.setScene(gui_scene)
         gui_view.show()
-        if not conf.AUTOPLAY:
-            pass
-            #threading.Thread(target=sock_checker, args=(sock, )).start()
-        thr = threading.Thread(target=play, args=(sock, gui_scene))
+        thr = threading.Thread(target=play, args=(
+            gui_scene,), name='GUIGameManager')
         thr.start()
         app.exec_()
         thr.join()
         del gui_view
         del gui_scene
     else:
-        play(sock)
+        thr = threading.Thread(target=play, name='GameManager')
+        thr.start()
+        thr.join()
+    sys.exit()
 
 
-def play(sock=None, gui=None):
-    pawns = None
-    to_move = gutils.TablutPlayerType.WHITE
-    if sock is not None:
-        conn.send_name(sock, PLAYER_NAME)
-        pawns, to_move = read_state(sock)
-        update_gui(gui, pawns)
-        if conf.PLAYER_ROLE == conf.BLACK_ROLE:
-            pawns, to_move = read_state(sock)
-            update_gui(gui, pawns)
-    game = TablutGame(initial_pawns=pawns, to_move=to_move)
+def play(gui=None):
+    game = TablutGame()
     game_state = game.initial
     update_gui(gui, game_state.pawns)
-    while True:
-        game.inc_turn()
-        print(f'Turn {game.turn}')
-        my_move = get_move(game, game_state, conf.MOVE_TIMEOUT - 10)
-        game_state = game.result(game_state, my_move)
-        print(f'My move: {my_move}')
-        print(f'King Heu:{strat.king_moves_to_goals_count(game_state.pawns)}')
-        print(f'White Heu:{strat.white_heuristic(game.turn,game_state)}')
-        print(f'Black Heu:{strat.black_heuristic(game.turn,game_state)}')
-        if sock is not None:
-            write_action(sock, my_move, game_state.to_move)
-        game.display(game_state)
-        if sock is not None:
-            _, to_move = read_state(sock)
-        update_gui(gui, game_state.pawns)
-        if (sock is not None and to_move is None) or game.terminal_test(game_state):
-            break
-        if sock is not None:
-            new_pawns, to_move = read_state(sock)
-            update_gui(gui, new_pawns)
-            enemy_move = gutils.from_pawns_to_move(
-                game_state.pawns, new_pawns, game_state.to_move
+    try:
+        if not conf.AUTOPLAY:
+            state_queue = queue.Queue(1)
+            action_queue = queue.Queue(1)
+            exception_queue = queue.Queue(1)
+
+            conn = Connector(
+                conf.SERVER_IP,
+                conf.PLAYER_SERVER_PORT,
+                conf.PLAYER_NAME,
+                state_queue,
+                action_queue,
+                exception_queue,
+                gutils.is_black(conf.PLAYER_ROLE)
             )
-        else:
-            enemy_move = get_move(game, game_state, conf.MOVE_TIMEOUT - 5)
-        game_state = game.result(game_state, enemy_move)
-        update_gui(gui, game_state.pawns)
-        print(f'Enemy move: {enemy_move}')
-        print(f'King Heu:{strat.king_moves_to_goals_count(game_state.pawns)}')
-        print(f'White Heu:{strat.white_heuristic(game.turn,game_state)}')
-        print(f'Black Heu:{strat.black_heuristic(game.turn,game_state)}')
-        game.display(game_state)
-        if (sock is not None and to_move is None) or game.terminal_test(game_state):
-            break
+            conn.start()
+            get_state(state_queue, exception_queue)
+            if gutils.is_black(conf.PLAYER_ROLE):
+                pawns, _ = get_state(state_queue, exception_queue)
+                update_gui(gui, pawns)
+        while not game.terminal_test(game_state):
+            game.inc_turn()
+            print(f'Turn {game.turn}')
+            # Not working
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(
+                    get_move, game, game_state, conf.MOVE_TIMEOUT - 10)
+                my_move = future.result()
+            game_state = game.result(game_state, my_move)
+            print(f'My move: {my_move}')
+            print(
+                f'King Heu:{strat.king_moves_to_goals_count(game_state.pawns)}')
+            print(f'White Heu:{strat.white_heuristic(game.turn,game_state)}')
+            print(f'Black Heu:{strat.black_heuristic(game.turn,game_state)}')
+
+            # Print
+            game.display(game_state)
+            update_gui(gui, game_state.pawns)
+
+            if not conf.AUTOPLAY:
+                action_queue.put((my_move, game_state.to_move))
+                get_state(state_queue, exception_queue)  # Get my move
+
+            if game.terminal_test(game_state):
+                break
+
+            if not conf.AUTOPLAY:
+                pawns, _ = get_state(
+                    state_queue, exception_queue)  # Get enemy move
+                enemy_move = gutils.from_pawns_to_move(
+                    game_state.pawns, pawns, game_state.to_move
+                )
+            else:
+                enemy_move = get_move(game, game_state, conf.MOVE_TIMEOUT - 10)
+            game_state = game.result(game_state, enemy_move)
+
+            print(f'Enemy move: {enemy_move}')
+            print(
+                f'King Heu:{strat.king_moves_to_goals_count(game_state.pawns)}')
+            print(f'White Heu:{strat.white_heuristic(game.turn,game_state)}')
+            print(f'Black Heu:{strat.black_heuristic(game.turn,game_state)}')
+
+            # Print
+            game.display(game_state)
+            update_gui(gui, game_state.pawns)
+    except Exception:
+        print(traceback.format_exc())
+    finally:
+        conn.join()
     win = game.utility(
         game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
     )
     print(win)
-    sock.close()
-
-
-def connect():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        conn.connect(
-            sock,
-            conf.SERVER_IP,
-            conf.PLAYER_SERVER_PORT
-        )
-    except ConnectionRefusedError:
-        print('Server is not running. Please, start the server and try again.')
-        sys.exit()
-    return sock
-
-
-def sock_checker(sock):
-    while conn.is_socket_valid(sock):
-        print(conn.is_socket_valid(sock))
-        pass
-    _thread.interrupt_main()
+    print('-' * 50)
 
 
 def update_gui(gui, pawns):
@@ -166,11 +168,11 @@ def update_gui(gui, pawns):
         gui.set_pawns(pawns)
 
 
-def read_state(sock):
-    board, to_move = conn.receive_state(sock)
-    return gutils.from_server_state_to_pawns(board, to_move)
-
-
-def write_action(sock, move, to_move):
-    action = gutils.from_move_to_server_action(move)
-    conn.send_action(sock, action, gutils.from_player_type_to_role(to_move))
+def get_state(state_queue, exception_queue):
+    while exception_queue.empty():
+        try:
+            state = state_queue.get_nowait()
+            return state
+        except queue.Empty:
+            pass
+    raise exception_queue.get_nowait()
