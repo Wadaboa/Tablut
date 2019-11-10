@@ -74,7 +74,8 @@ def entry():
         gui_view.setScene(gui_scene)
         gui_view.show()
         if not conf.AUTOPLAY:
-            sock_checker(sock)
+            pass
+            #threading.Thread(target=sock_checker, args=(sock, )).start()
         thr = threading.Thread(target=play, args=(sock, gui_scene))
         thr.start()
         app.exec_()
@@ -86,25 +87,22 @@ def entry():
 
 
 def play(sock=None, gui=None):
+    pawns = None
+    to_move = gutils.TablutPlayerType.WHITE
     if sock is not None:
         conn.send_name(sock, PLAYER_NAME)
         pawns, to_move = read_state(sock)
-        if gui is not None:
-            gui.set_pawns(pawns)
+        update_gui(gui, pawns)
         if conf.PLAYER_ROLE == conf.BLACK_ROLE:
             pawns, to_move = read_state(sock)
-            if gui is not None:
-                gui.set_pawns(pawns)
-        game = TablutGame(initial_pawns=pawns, to_move=to_move)
-    else:
-        game = TablutGame()
+            update_gui(gui, pawns)
+    game = TablutGame(initial_pawns=pawns, to_move=to_move)
     game_state = game.initial
-    if gui is not None:
-        gui.set_pawns(game_state.pawns)
+    update_gui(gui, game_state.pawns)
     while True:
         game.inc_turn()
         print(f'Turn {game.turn}')
-        my_move = get_move(game, game_state, conf.MOVE_TIMEOUT - 5)
+        my_move = get_move(game, game_state, conf.MOVE_TIMEOUT - 10)
         game_state = game.result(game_state, my_move)
         print(f'My move: {my_move}')
         print(f'King Heu:{strat.king_moves_to_goals_count(game_state.pawns)}')
@@ -115,22 +113,19 @@ def play(sock=None, gui=None):
         game.display(game_state)
         if sock is not None:
             _, to_move = read_state(sock)
-        if gui is not None:
-            gui.set_pawns(game_state.pawns)
+        update_gui(gui, game_state.pawns)
         if (sock is not None and to_move is None) or game.terminal_test(game_state):
             break
         if sock is not None:
             new_pawns, to_move = read_state(sock)
-            if gui is not None:
-                gui.set_pawns(new_pawns)
-                enemy_move = gutils.from_pawns_to_move(
-                    game_state.pawns, new_pawns, game_state.to_move
-                )
+            update_gui(gui, new_pawns)
+            enemy_move = gutils.from_pawns_to_move(
+                game_state.pawns, new_pawns, game_state.to_move
+            )
         else:
             enemy_move = get_move(game, game_state, conf.MOVE_TIMEOUT - 5)
         game_state = game.result(game_state, enemy_move)
-        if gui is not None:
-            gui.set_pawns(game_state.pawns)
+        update_gui(gui, game_state.pawns)
         print(f'Enemy move: {enemy_move}')
         print(f'King Heu:{strat.king_moves_to_goals_count(game_state.pawns)}')
         print(f'White Heu:{strat.white_heuristic(game.turn,game_state)}')
@@ -160,10 +155,15 @@ def connect():
 
 
 def sock_checker(sock):
-    threading.Timer(1, sock_checker, args=(sock, )).start()
-    if not conn.is_socket_valid(sock):
-        _thread.interrupt_main()
-        return False
+    while conn.is_socket_valid(sock):
+        print(conn.is_socket_valid(sock))
+        pass
+    _thread.interrupt_main()
+
+
+def update_gui(gui, pawns):
+    if gui is not None:
+        gui.set_pawns(pawns)
 
 
 def read_state(sock):

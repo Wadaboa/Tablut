@@ -25,7 +25,7 @@ def is_socket_valid(sock):
 
     try:
         sock.getsockname()
-    except sock.error as err:
+    except socket.error as err:
         err_type = err.args[0]
         if err_type == errno.EBADF:  # 9: Bad file descriptor
             return False
