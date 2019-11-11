@@ -29,11 +29,12 @@ BLACK_BEST_POSITIONS = {
     TablutBoardPosition(row=7, col=6)
 }
 
+
 # ______________________________________________________________________________
-# AlphaBetaTree Search
+# Alpha-Beta tree search
 
 
-def alphabeta_cutoff_search(state, game, eval_fn, cutoff_test, timeout, max_depth=4):
+def alphabeta_search(state, game, eval_fn, cutoff_test, timeout, max_depth):
     """Search game to determine best action; use alpha-beta pruning.
     This version cuts off search and uses an evaluation function."""
 
@@ -44,7 +45,7 @@ def alphabeta_cutoff_search(state, game, eval_fn, cutoff_test, timeout, max_dept
         if cutoff_test(game, state, depth, max_depth, start_time, timeout):
             return eval_fn(game.turn, state, gutils.other_player(state.to_move)), 1
         total = 0
-        for a in game.actions(state):
+        for a, _ in game.actions(state):
             new_alpha, index = min_value(game.result(state, a),
                                          alpha, beta, depth + 1)
             total += index
@@ -60,7 +61,7 @@ def alphabeta_cutoff_search(state, game, eval_fn, cutoff_test, timeout, max_dept
         if cutoff_test(game, state, depth, max_depth, start_time, timeout):
             return eval_fn(game.turn, state, gutils.other_player(state.to_move)), 1
         total = 0
-        for a in game.actions(state):
+        for a, _ in game.actions(state):
             new_beta, index = max_value(game.result(state, a),
                                         alpha, beta, depth + 1)
             total += index
@@ -80,7 +81,7 @@ def alphabeta_cutoff_search(state, game, eval_fn, cutoff_test, timeout, max_dept
     best_action = None
     big_total = 0
     print(f'Ricerca Mosse:')
-    for a in game.actions(state):
+    for a, _ in game.actions(state):
         v, total = max_value(game.result(state, a), best_score, beta, 1)
         big_total += total
         print(f'Mossa analizzata {a}')
@@ -96,10 +97,63 @@ def alphabeta_cutoff_search(state, game, eval_fn, cutoff_test, timeout, max_dept
     return best_action
 
 # ______________________________________________________________________________
+# Negascout tree search
+
+
+def negascout_search(game, state, eval_fn, depth, alpha, beta):
+    if game.terminal_test(state) or depth <= 0:
+        return eval_fn(game.turn, state, gutils.other_player(state.to_move))
+    moves = game.actions(state)
+    best_move, new_state, _ = moves[0]
+    current = -failsoft_alphabeta(
+        game, new_state, eval_fn, depth - 1, -beta, -alpha
+    )
+    for move, new_state, _ in moves[1:]:
+        score = -failsoft_alphabeta(
+            game, new_state, eval_fn, depth - 1, -alpha - 1, -alpha
+        )
+        if score > alpha and score < beta:
+            score = -failsoft_alphabeta(
+                game, new_state, eval_fn, depth - 1, -beta, -alpha
+            )
+        if score >= current:
+            current = score
+            best_move = move
+            if score >= alpha:
+                alpha = score
+            if score >= beta:
+                break
+    return best_move
+
+
+def failsoft_alphabeta(game, state, eval_fn, depth, alpha, beta):
+    best_move = None
+    current = -INF
+    if game.terminal_test(state) or depth <= 0:
+        return eval_fn(game.turn, state, gutils.other_player(state.to_move))
+    for move, new_state, _ in game.actions(state):
+        score = -failsoft_alphabeta(
+            game, new_state, eval_fn, depth - 1, -beta, -alpha
+        )
+        if score >= current:
+            current = score
+            best_move = move
+            if score >= alpha:
+                alpha = score
+            if score >= beta:
+                break
+    return current
+
+# ______________________________________________________________________________
 # Monte Carlo Tree Search
 
 
-def monte_carlo_tree_search(game, state, eval_fn, cutoff_test, timeout, itmax=1000):
+def monte_carlo_tree_search(game, state, eval_fn, cutoff_test,
+                            timeout, itmax=1000):
+    '''
+    Monte Carlo tree search
+    '''
+
     def select(node):
         '''
         Select a leaf node in the tree
@@ -116,7 +170,7 @@ def monte_carlo_tree_search(game, state, eval_fn, cutoff_test, timeout, itmax=10
         if not node.children and not game.terminal_test(node.state):
             node.children = {
                 MCTNode(state=game.result(node.state, action), parent=node):
-                action for action in game.actions(node.state)
+                action for action, _ in game.actions(node.state)
             }
         return select(node)
 
@@ -126,20 +180,20 @@ def monte_carlo_tree_search(game, state, eval_fn, cutoff_test, timeout, itmax=10
         '''
         player = game.to_move(state)
         while not game.terminal_test(state):
-            print(state)
+            #action = alphabeta_player(game, state, 10, max_depth=1)
             action = random.choice(list(game.actions(state)))
             state = game.result(state, action)
-        return -eval_fn(game.turn, state, player)
+        return -game.utility(state, player)
 
     def backprop(node, value):
         '''
         Passing the utility back to all parent nodes
         '''
         if value > 0:
-            node.U += value
+            node.win += value
         # if utility == 0:
-        #     n.U += 0.5
-        node.N += 1
+        #     n.win += 0.5
+        node.visit += 1
         if node.parent is not None:
             backprop(node.parent, -value)
 
@@ -152,7 +206,7 @@ def monte_carlo_tree_search(game, state, eval_fn, cutoff_test, timeout, itmax=10
             result = simulate(game, child.state)
             backprop(child, result)
 
-    max_state = max(root.children, key=lambda p: p.N)
+    max_state = max(root.children, key=lambda p: p.visit)
     return root.children.get(max_state)
 
 # ______________________________________________________________________________
@@ -164,16 +218,19 @@ class MCTNode:
     Node in the Monte Carlo search tree, keeps track of the children states
     '''
 
-    def __init__(self, state=None, parent=None, U=0, N=0):
-        self.__dict__.update(state=state, parent=parent, U=U, N=N)
+    def __init__(self, state=None, parent=None, win=0, visit=0):
+        self.__dict__.update(state=state, parent=parent, win=win, visit=visit)
         self.children = {}
         self.actions = None
 
 
-def ucb(node, C=1.4):
+def ucb(node, c=1.4):
     return (
-        INF if node.N == 0
-        else node.U / node.N + C * math.sqrt(math.log(node.parent.N) / node.N)
+        INF if node.visit == 0
+        else (
+            node.win / node.visit +
+            c * math.sqrt(math.log(node.parent.visit) / node.visit)
+        )
     )
 
 # ______________________________________________________________________________
@@ -182,7 +239,8 @@ def ucb(node, C=1.4):
 def get_move(game, state, timeout, max_depth=3):
     #move = None
     #move = alphabeta_player(game, state, timeout, max_depth)
-    move = monte_carlo_player(game, state, timeout)
+    move = negascout_player(game, state, max_depth)
+    #move = monte_carlo_player(game, state, timeout)
     if move is None:
         print('Alphabeta failure')
         move = random_player(state)
@@ -196,12 +254,18 @@ def random_player(state):
     return utils.get_from_set(state.moves)
 
 
-def alphabeta_player(game, state, timeout, max_depth=2):
+def alphabeta_player(game, state, timeout, max_depth):
     '''
     Computes the alphabeta search best move
     '''
-    return alphabeta_cutoff_search(
+    return alphabeta_search(
         state, game, heuristic, alphabeta_cutoff_test, timeout, max_depth
+    )
+
+
+def negascout_player(game, state, max_depth):
+    return negascout_search(
+        game, state, heuristic, depth=max_depth, alpha=-INF, beta=INF
     )
 
 
@@ -217,6 +281,9 @@ def alphabeta_cutoff_test(game, state, depth, max_depth, start_time, timeout):
     if the search can continue or must end because the given timeout expired,
     if the depth of the tree as reached the given maximum
     '''
+    if not in_time(start_time, timeout):
+        print('TIMEOUT')
+        print(depth)
     return (
         depth > max_depth or
         game.terminal_test(state) or
@@ -256,10 +323,10 @@ def black_heuristic(turn, state):
     '''
     value = blocking_escapes_positions_count(state.pawns)
     if turn < 40:
-        value -= king_moves_to_goals_count(state.pawns)
         value += TablutBoard.piece_difference_count(
             state.pawns, TablutPlayerType.BLACK
         )
+        value -= king_moves_to_goals_count(state.pawns)
         value += potential_king_killers_count(state.pawns)
     elif turn < 70:
         value += 2 * TablutBoard.piece_difference_count(

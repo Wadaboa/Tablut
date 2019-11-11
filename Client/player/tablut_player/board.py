@@ -3,7 +3,6 @@ Board game representations module
 '''
 
 import tablut_player.game_utils as gutils
-import tablut_player.utils as utils
 from tablut_player.game_utils import (
     TablutBoardPosition,
     TablutPawnDirection,
@@ -110,7 +109,7 @@ class TablutBoard():
         for sub in pawns.values():
             unallowed_positions.update(sub)
         unallowed_positions.add(cls.CASTLE)
-        bad_camps = utils.copy(cls.CAMPS)
+        bad_camps = set(cls.CAMPS)
         if pawn_coords in cls.CAMPS:
             near_camps = set(cls.k_neighbors(pawn_coords, k=1))
             near_camps.update(set(cls.k_neighbors(pawn_coords, k=2)))
@@ -175,7 +174,7 @@ class TablutBoard():
         Return all the valid moves available, starting from the given
         pawn position
         '''
-        unreachables = utils.copy(unallowed_positions)
+        unreachables = set(unallowed_positions)
         for u in unallowed_positions:
             pawn_direction = cls._pawn_direction(pawn_coords, u)
             if pawn_direction is not None:
@@ -189,7 +188,9 @@ class TablutBoard():
         '''
         Apply the given move
         '''
-        new_pawns = utils.copy(pawns)
+        new_pawns = dict()
+        for pawn_type in pawns:
+            new_pawns[pawn_type] = set(pawns[pawn_type])
         pawn_types = gutils.from_player_to_pawn_types(player_type)
         from_move, to_move = move
         for pawn_type in pawn_types:

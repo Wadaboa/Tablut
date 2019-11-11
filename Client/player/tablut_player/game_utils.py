@@ -4,7 +4,12 @@ Helper module, containing shared game utility functions
 
 
 from enum import Enum
+from collections import namedtuple
+
 import tablut_player.config as conf
+
+
+TablutAction = namedtuple('TablutAction', 'move, state, value')
 
 
 class TablutGameState:
