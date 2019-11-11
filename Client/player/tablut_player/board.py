@@ -123,7 +123,10 @@ class TablutBoard():
         '''
         Given two pawn coordinates, return its move direction
         '''
-        if initial_pawn_coords.row == final_pawn_coords.row:
+        if (initial_pawn_coords.row == final_pawn_coords.row and
+                initial_pawn_coords.col == final_pawn_coords.col):
+            return None
+        elif initial_pawn_coords.row == final_pawn_coords.row:
             return (
                 TablutPawnDirection.LEFT if (
                     final_pawn_coords.col < initial_pawn_coords.col

@@ -33,7 +33,7 @@ BLACK_BEST_POSITIONS = {
 # AlphaBetaTree Search
 
 
-def alphabeta_cutoff_search(state, game, timeout, cutoff_test, eval_fn, max_depth=4):
+def alphabeta_cutoff_search(state, game, eval_fn, cutoff_test, timeout, max_depth=4):
     """Search game to determine best action; use alpha-beta pruning.
     This version cuts off search and uses an evaluation function."""
 
@@ -99,75 +99,90 @@ def alphabeta_cutoff_search(state, game, timeout, cutoff_test, eval_fn, max_dept
 # Monte Carlo Tree Search
 
 
-def monte_carlo_tree_search(state, game, N=1000):
-    def select(n):
-        """select a leaf node in the tree"""
-        if n.children:
-            return select(max(n.children.keys(), key=ucb))
+def monte_carlo_tree_search(game, state, eval_fn, cutoff_test, timeout, itmax=1000):
+    def select(node):
+        '''
+        Select a leaf node in the tree
+        '''
+        if node.children:
+            return select(max(node.children.keys(), key=ucb))
         else:
-            return n
+            return node
 
-    def expand(n):
-        """expand the leaf node by adding all its children states"""
-        if not n.children and not game.terminal_test(n.state):
-            n.children = {MCT_Node(state=game.result(n.state, action), parent=n): action
-                          for action in game.actions(n.state)}
-        return select(n)
+    def expand(node):
+        '''
+        Expand the leaf node by adding all its children states
+        '''
+        if not node.children and not game.terminal_test(node.state):
+            node.children = {
+                MCTNode(state=game.result(node.state, action), parent=node):
+                action for action in game.actions(node.state)
+            }
+        return select(node)
 
     def simulate(game, state):
-        """simulate the utility of current state by random picking a step"""
+        '''
+        Simulate the utility of current state by random picking a step
+        '''
         player = game.to_move(state)
         while not game.terminal_test(state):
+            print(state)
             action = random.choice(list(game.actions(state)))
             state = game.result(state, action)
-        v = game.utility(state, player)
-        return -v
+        return -eval_fn(game.turn, state, player)
 
-    def backprop(n, utility):
-        """passing the utility back to all parent nodes"""
-        if utility > 0:
-            n.U += utility
+    def backprop(node, value):
+        '''
+        Passing the utility back to all parent nodes
+        '''
+        if value > 0:
+            node.U += value
         # if utility == 0:
         #     n.U += 0.5
-        n.N += 1
-        if n.parent:
-            backprop(n.parent, -utility)
+        node.N += 1
+        if node.parent is not None:
+            backprop(node.parent, -value)
 
-    root = MCT_Node(state=state)
-
-    for _ in range(N):
-        leaf = select(root)
-        child = expand(leaf)
-        result = simulate(game, child.state)
-        backprop(child, result)
+    start_time = time.time()
+    root = MCTNode(state=state)
+    for it in range(itmax):
+        if not cutoff_test(start_time, timeout, it, itmax):
+            leaf = select(root)
+            child = expand(leaf)
+            result = simulate(game, child.state)
+            backprop(child, result)
 
     max_state = max(root.children, key=lambda p: p.N)
-
     return root.children.get(max_state)
 
 # ______________________________________________________________________________
 # Monte Carlo tree node and ucb function
 
 
-class MCT_Node:
-    """Node in the Monte Carlo search tree, keeps track of the children states"""
+class MCTNode:
+    '''
+    Node in the Monte Carlo search tree, keeps track of the children states
+    '''
 
-    def __init__(self, parent=None, state=None, U=0, N=0):
-        self.__dict__.update(parent=parent, state=state, U=U, N=N)
+    def __init__(self, state=None, parent=None, U=0, N=0):
+        self.__dict__.update(state=state, parent=parent, U=U, N=N)
         self.children = {}
         self.actions = None
 
 
-def ucb(n, C=1.4):
-    return INF if n.N == 0 else n.U / n.N + C * math.sqrt(math.log(n.parent.N) / n.N)
+def ucb(node, C=1.4):
+    return (
+        INF if node.N == 0
+        else node.U / node.N + C * math.sqrt(math.log(node.parent.N) / node.N)
+    )
 
 # ______________________________________________________________________________
 
 
 def get_move(game, state, timeout, max_depth=3):
     #move = None
-    move = alphabeta_player(game, state, timeout, max_depth)
-    #move = monte_carlo_tree_search(state, game)
+    #move = alphabeta_player(game, state, timeout, max_depth)
+    move = monte_carlo_player(game, state, timeout)
     if move is None:
         print('Alphabeta failure')
         move = random_player(state)
@@ -185,7 +200,15 @@ def alphabeta_player(game, state, timeout, max_depth=2):
     '''
     Computes the alphabeta search best move
     '''
-    return alphabeta_cutoff_search(state, game, timeout, alphabeta_cutoff_test, heuristic, max_depth)
+    return alphabeta_cutoff_search(
+        state, game, heuristic, alphabeta_cutoff_test, timeout, max_depth
+    )
+
+
+def monte_carlo_player(game, state, timeout, itmax=1000):
+    return monte_carlo_tree_search(
+        game, state, heuristic, montecarlo_cutoff_test, timeout, itmax
+    )
 
 
 def alphabeta_cutoff_test(game, state, depth, max_depth, start_time, timeout):
@@ -194,11 +217,22 @@ def alphabeta_cutoff_test(game, state, depth, max_depth, start_time, timeout):
     if the search can continue or must end because the given timeout expired,
     if the depth of the tree as reached the given maximum
     '''
-    return depth > max_depth or game.terminal_test(state) or not in_time(start_time, timeout)
+    return (
+        depth > max_depth or
+        game.terminal_test(state) or
+        not in_time(start_time, timeout)
+    )
+
+
+def montecarlo_cutoff_test(start_time, timeout, it, itmax=1000):
+    return (
+        it > itmax or
+        not in_time(start_time, timeout)
+    )
 
 
 def in_time(start_time, timeout):
-    return time.time()-start_time < timeout
+    return time.time() - start_time < timeout
 
 
 def heuristic(turn, state, player):

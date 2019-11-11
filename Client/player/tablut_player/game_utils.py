@@ -12,7 +12,7 @@ class TablutGameState:
     Tablut game state
     '''
 
-    def __init__(self, to_move, utility, pawns, moves, old_state=None):
+    def __init__(self, to_move, utility, pawns, moves=set(), old_state=None):
         self.to_move = to_move
         self.utility = utility
         self.pawns = pawns

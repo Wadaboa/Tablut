@@ -157,13 +157,16 @@ class TablutGame(Game):
     def result(self, state, move):
         pawns = TablutBoard.move(state.pawns, state.to_move, move)
         to_move = gutils.other_player(state.to_move)
-        return TablutGameState(
+        res = TablutGameState(
             to_move=to_move,
             utility=self._compute_utility(pawns, state.to_move),
             pawns=pawns,
-            moves=self._moves(pawns, to_move),
+            moves=set(),
             old_state=state
         )
+        if not self.terminal_test(res):
+            res.moves = self._moves(pawns, to_move)
+        return res
 
     def utility(self, state, player):
         '''
