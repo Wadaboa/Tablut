@@ -7,7 +7,7 @@ partially taken from AIMA library.
 from typing import overload
 
 import tablut_player.game_utils as gutils
-import tablut_player.strategy as strat
+import tablut_player.heuristic as heu
 from tablut_player.game_utils import (
     TablutBoardPosition,
     TablutPawnType,
@@ -153,14 +153,23 @@ class TablutGame(Game):
         self.turn += 1
 
     def actions(self, state):
+        return state.moves
+
+    def next_states(self, state):
+        return [
+            self.result(state, action)
+            for action in self.actions(state)
+        ]
+
+    def valued_actions(self, state):
         moves = []
         for move in state.moves:
             new_state = self.result(state, move)
             moves.append(
-                gutils.TablutAction(
+                gutils.TablutValuedAction(
                     move=move,
                     state=new_state,
-                    value=strat.heuristic(
+                    value=heu.heuristic(
                         self.turn,
                         new_state,
                         gutils.other_player(state.to_move)

@@ -9,7 +9,7 @@ from collections import namedtuple
 import tablut_player.config as conf
 
 
-TablutAction = namedtuple('TablutAction', 'move, state, value')
+TablutValuedAction = namedtuple('TablutAction', 'move, state, value')
 
 
 class TablutGameState:
