@@ -51,7 +51,7 @@ def parse_args():
         help="avoid connecting to the server and play locally with both roles"
     )
     args = parser.parse_args()
-    conf.TIMEOUT = args.timeout
+    conf.MOVE_TIMEOUT = int(args.timeout)
     conf.SERVER_IP = args.server_ip
     conf.DEBUG = args.debug
     conf.AUTOPLAY = args.autoplay

@@ -5,6 +5,7 @@ Tablut states evaluation functions
 
 import random
 
+import tablut_player.game_utils as gutils
 from tablut_player.game_utils import (
     TablutBoardPosition,
     TablutPawnType,
@@ -26,7 +27,8 @@ BLACK_BEST_POSITIONS = {
 }
 
 
-def heuristic(turn, state, player):
+def heuristic(turn, state):
+    player = gutils.other_player(state.to_move)
     if player == TablutPlayerType.WHITE:
         return white_heuristic(turn, state)
     return black_heuristic(turn, state)

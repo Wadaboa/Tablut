@@ -17,10 +17,11 @@ from tablut_player.utils import INF
 class TranspositionTableEntryType(Enum):
     '''
     Search strategy node alpha-beta type.
-    It could represent the exact value of a position, its lower or upper bound.
+    It could represent the exact value of a position, its lower bound (beta)
+    or its upper bound (alpha).
     '''
 
-    EXACT, LOWER_BOUND, UPPER_BOUND = range(3)
+    EXACT, LOWER, UPPER = range(3)
 
 
 class TranspositionTableEntry:
@@ -40,18 +41,25 @@ class TranspositionTable:
         entry = self.table.get(hash(state))
         return entry.valued_action if entry is not None else None
 
+    def get_value(self, state, depth, alpha, beta):
+        entry = self.table.get(hash(state))
+        if entry is not None and entry.depth <= depth:
+            if entry.node_type == TranspositionTableEntryType.EXACT:
+                return entry.valued_action.value
+            elif (entry.node_type == TranspositionTableEntryType.UPPER and
+                  entry.valued_action.value <= alpha):
+                return alpha
+            elif (entry.node_type == TranspositionTableEntryType.LOWER and
+                  entry.valued_action.value >= beta):
+                return beta
+        return None
+
     def put_action(self, valued_action, depth, node_type):
-        entry = self.table.get(hash(valued_action.state))
-        if entry is None:
-            self.table[hash(valued_action.state)] = TranspositionTableEntry(
-                valued_action=valued_action,
-                depth=depth,
-                node_type=node_type
-            )
-        elif entry.depth <= depth:
-            entry.valued_action = valued_action
-            entry.depth = depth
-            entry.node_type = node_type
+        self.table[hash(valued_action.state)] = TranspositionTableEntry(
+            valued_action=valued_action,
+            depth=depth,
+            node_type=node_type
+        )
 
     def clear(self):
         self.table = {}
@@ -60,38 +68,81 @@ class TranspositionTable:
 # Alpha-Beta tree search
 
 
+TABLE = TranspositionTable()
+
+
 def alphabeta_search(game, state, eval_fn, cutoff, timeout, max_depth):
     '''
     Minimax with alpha-beta pruning search strategy
     '''
 
-    def max_value(state, alpha, beta, depth, max_d):
+    def max_value(action, alpha, beta, depth, max_d):
+        state = action.state
+        value = TABLE.get_value(state, depth, alpha, beta)
+        if value is not None:
+            return value, 1
         if cutoff(game, state, depth, max_d, start_time, timeout):
-            return eval_fn(game.turn, state, gutils.other_player(state.to_move)), 1
-        total = 0
-        for _, new_state, _ in game.valued_actions(state):
-            new_alpha, index = min_value(
-                new_state, alpha, beta, depth + 1, max_d
+            value = eval_fn(game.turn, action.state)
+            TABLE.put_action(
+                gutils.TablutValuedAction.from_action(action, value),
+                depth, TranspositionTableEntryType.EXACT
             )
+            return value, 1
+        value = -INF
+        total = 0
+        for new_action in game.actions(state):
+            new_value, index = min_value(
+                new_action, alpha, beta, depth + 1, max_d
+            )
+            value = max(value, new_value)
             total += index
-            alpha = max(alpha, new_alpha)
-            if alpha >= beta:
-                return beta, total
-        return alpha, total
+            if value >= beta:
+                TABLE.put_action(
+                    gutils.TablutValuedAction.from_action(new_action, value),
+                    depth, TranspositionTableEntryType.LOWER
+                )
+                return value, total
+            alpha = max(alpha, value)
 
-    def min_value(state, alpha, beta, depth, max_d):
+        TABLE.put_action(
+            gutils.TablutValuedAction.from_action(action, value),
+            depth, TranspositionTableEntryType.EXACT
+        )
+        return value, total
+
+    def min_value(action, alpha, beta, depth, max_d):
+        state = action.state
+        value = TABLE.get_value(state, depth, alpha, beta)
+        if value is not None:
+            return value, 1
         if cutoff(game, state, depth, max_d, start_time, timeout):
-            return eval_fn(game.turn, state, gutils.other_player(state.to_move)), 1
-        total = 0
-        for _, new_state, _ in game.valued_actions(state):
-            new_beta, index = max_value(
-                new_state, alpha, beta, depth + 1, max_d
+            value = eval_fn(game.turn, action.state)
+            TABLE.put_action(
+                gutils.TablutValuedAction.from_action(action, value),
+                depth, TranspositionTableEntryType.EXACT
             )
+            return value, 1
+        value = INF
+        total = 0
+        for new_action in game.actions(state):
+            new_value, index = max_value(
+                new_action, alpha, beta, depth + 1, max_d
+            )
+            value = min(value, new_value)
             total += index
-            beta = min(beta, new_beta)
-            if alpha >= beta:
-                return alpha, total
-        return beta, total
+            if value <= alpha:
+                TABLE.put_action(
+                    gutils.TablutValuedAction.from_action(new_action, value),
+                    depth, TranspositionTableEntryType.UPPER
+                )
+                return value, total
+            beta = min(beta, value)
+
+        TABLE.put_action(
+            gutils.TablutValuedAction.from_action(action, value),
+            depth, TranspositionTableEntryType.EXACT
+        )
+        return value, total
 
     start_time = time.time()
     best_score = -INF
@@ -99,24 +150,28 @@ def alphabeta_search(game, state, eval_fn, cutoff, timeout, max_depth):
     best_action = None
     big_total = 0
     print(f'Ricerca Mosse:')
-    for max_d in range(1, max_depth):
-        for move, new_state, _ in game.valued_actions(state):
-            v, total = max_value(
-                new_state, best_score, beta, 1, max_d
+    for max_d in range(1, max_depth + 1):
+        for action in game.actions(state):
+            move = action.move
+            value, total = min_value(
+                action, best_score, beta, 1, max_d
             )
             big_total += total
             print(f'Mossa analizzata {move}')
-            if v > best_score:
+            if value > best_score:
                 print(
-                    f'Old best score {best_score}, new best score {v}\n'
+                    f'Old best score {best_score}, new best score {value}\n'
                     f'Old best action {best_action}, new best action {move}\n'
                     f'Total moves Analized: {total} \n'
                 )
-                best_score = v
-                best_action = move
+                best_score = value
+                best_action = action
+            if not in_time(start_time, timeout):
+                break
         print(f'FINITO DEPTH {max_d}')
     print(f' The total amount of moves analized is {big_total}')
-    return best_action
+    TABLE.clear()
+    return best_action.move
 
 # ______________________________________________________________________________
 # Negascout tree search
@@ -131,7 +186,7 @@ def negascout_search(game, state, eval_fn, depth, alpha, beta):
         best_move = None
         current = -INF
         if game.terminal_test(state) or depth <= 0:
-            return eval_fn(game.turn, state, gutils.other_player(state.to_move))
+            return eval_fn(game.turn, state)
         for move, new_state, _ in game.valued_actions(state):
             score = -failsoft_alphabeta(new_state, depth - 1, -beta, -alpha)
             if score >= current:
@@ -145,7 +200,7 @@ def negascout_search(game, state, eval_fn, depth, alpha, beta):
 
     def negascout(game, state, eval_fn, depth, alpha, beta):
         if game.terminal_test(state) or depth <= 0:
-            return eval_fn(game.turn, state, gutils.other_player(state.to_move))
+            return eval_fn(game.turn, state)
         moves = game.valued_actions(state)
         best_move, new_state, _ = moves[0]
         current = -failsoft_alphabeta(new_state, depth - 1, -beta, -alpha)
@@ -191,7 +246,7 @@ def monte_carlo_tree_search(game, state, eval_fn, cutoff, timeout, max_it=1000):
         if not node.children and not game.terminal_test(node.state):
             node.children = {
                 MCTNode(state=game.result(node.state, action), parent=node):
-                action for action in game.actions(node.state)
+                action for action in game.moves(node.state)
             }
         return select(node)
 
@@ -201,7 +256,7 @@ def monte_carlo_tree_search(game, state, eval_fn, cutoff, timeout, max_it=1000):
         '''
         player = game.to_move(state)
         while not game.terminal_test(state):
-            action = random.choice(list(game.actions(state)))
+            action = random.choice(list(game.moves(state)))
             state = game.result(state, action)
         return -game.utility(state, player)
 
@@ -259,7 +314,7 @@ def ucb(node, const=math.sqrt(2)):
 # ______________________________________________________________________________
 
 
-def get_move(game, state, timeout, max_depth=3):
+def get_move(game, state, timeout, max_depth=4):
     # move = None
     move = alphabeta_player(game, state, timeout, max_depth)
     # move = negascout_player(game, state, max_depth)
@@ -314,7 +369,7 @@ def alphabeta_cutoff(game, state, depth, max_depth, start_time, timeout):
         print('TIMEOUT')
         print(depth)
     return (
-        depth > max_depth or
+        depth >= max_depth or
         game.terminal_test(state) or
         not in_time(start_time, timeout)
     )

@@ -5,6 +5,7 @@ partially taken from AIMA library.
 
 
 from typing import overload
+import random
 
 import tablut_player.game_utils as gutils
 import tablut_player.heuristic as heu
@@ -98,6 +99,7 @@ class TablutGame(Game):
             moves=self._moves(initial_pawns, to_move),
             old_state=None
         )
+        self._init_zobrist()
         self.turn = 0
 
     def _init_pawns(self):
@@ -127,6 +129,28 @@ class TablutGame(Game):
 
         return pawns
 
+    def _init_zobrist(self):
+        '''
+        Generate zobrist random bitstrings
+        '''
+        pawn_types = TablutPawnType.values()
+        player_types = TablutPlayerType.values()
+        dim = ((TablutBoard.SIZE ** 2) * len(pawn_types)) + len(player_types)
+        keys = set()
+        random.seed(dim)
+        while len(keys) < dim:
+            keys.add(random.getrandbits(64))
+        for i in range(TablutBoard.SIZE):
+            for j in range(TablutBoard.SIZE):
+                pos = TablutBoardPosition(row=i, col=j)
+                for pawn_type in TablutPawnType.values():
+                    key = keys.pop()
+                    TablutGameState.ZOBRIST_KEYS.board.setdefault(
+                        pos, {}
+                    )[pawn_type] = key
+        for player_type in player_types:
+            TablutGameState.ZOBRIST_KEYS.to_move[player_type] = keys.pop()
+
     def _draw(self, state):
         '''
         Check if there is a draw, based on the number of repeated states
@@ -152,32 +176,41 @@ class TablutGame(Game):
         '''
         self.turn += 1
 
-    def actions(self, state):
+    def moves(self, state):
         return state.moves
 
     def next_states(self, state):
         return [
-            self.result(state, action)
-            for action in self.actions(state)
+            self.result(state, move)
+            for move in self.moves(state)
         ]
 
-    def valued_actions(self, state):
-        moves = []
-        for move in state.moves:
+    def actions(self, state):
+        actions = []
+        for move in self.moves(state):
             new_state = self.result(state, move)
-            moves.append(
-                gutils.TablutValuedAction(
+            actions.append(
+                gutils.TablutAction(
                     move=move,
                     state=new_state,
+                )
+            )
+        return actions
+
+    def ordered_valued_actions(self, state):
+        valued_actions = []
+        for action in self.actions(state):
+            valued_actions.append(
+                gutils.TablutValuedAction(
+                    action=action,
                     value=heu.heuristic(
                         self.turn,
-                        new_state,
-                        gutils.other_player(state.to_move)
+                        action.state
                     )
                 )
             )
-        moves.sort(key=lambda action: action.value)
-        return moves
+        valued_actions.sort(key=lambda action: action.value)
+        return valued_actions
 
     def result(self, state, move):
         pawns = TablutBoard.move(state.pawns, state.to_move, move)

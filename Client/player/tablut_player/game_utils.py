@@ -3,19 +3,38 @@ Helper module, containing shared game utility functions
 '''
 
 
-from enum import Enum
 from collections import namedtuple
+from enum import Enum
 
 import tablut_player.config as conf
 
 
-TablutValuedAction = namedtuple('TablutAction', 'move, state, value')
+ZobristKeys = namedtuple('ZobristKeys', 'board, to_move')
+
+
+class TablutAction:
+
+    def __init__(self, move, state):
+        self.__dict__.update(move=move, state=state)
+
+
+class TablutValuedAction(TablutAction):
+
+    def __init__(self, move, state, value):
+        super().__init__(move, state)
+        self.value = value
+
+    @classmethod
+    def from_action(cls, action, value):
+        return cls(action.move, action.state, value)
 
 
 class TablutGameState:
     '''
     Tablut game state
     '''
+
+    ZOBRIST_KEYS = ZobristKeys(board={}, to_move={})
 
     def __init__(self, to_move, utility, pawns, moves=set(), old_state=None):
         self.to_move = to_move
@@ -47,6 +66,13 @@ class TablutGameState:
         rep += '-' * 100
         return rep
 
+    def __hash__(self):
+        val = self.ZOBRIST_KEYS.to_move[self.to_move]
+        for pawn_type in self.pawns:
+            for pawn_position in self.pawns[pawn_type]:
+                val ^= self.ZOBRIST_KEYS.board[pawn_position][pawn_type]
+        return val
+
 
 class TablutPawnType(Enum):
     '''
@@ -63,6 +89,13 @@ class TablutPawnType(Enum):
             if pawn_type.value == value.capitalize():
                 return pawn_type
         return None
+
+    @staticmethod
+    def values():
+        return [
+            pawn_type
+            for _, pawn_type in TablutPawnType.__members__.items()
+        ]
 
     def __str__(self):
         return f'{self.value}'
@@ -85,6 +118,13 @@ class TablutPlayerType(Enum):
             if player_type.value == value.capitalize():
                 return player_type
         return None
+
+    @staticmethod
+    def values():
+        return [
+            player_type
+            for _, player_type in TablutPlayerType.__members__.items()
+        ]
 
     def __str__(self):
         return f'{self.value}'
