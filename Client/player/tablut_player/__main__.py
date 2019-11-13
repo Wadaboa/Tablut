@@ -17,6 +17,7 @@ import tablut_player.config as conf
 import tablut_player.game_utils as gutils
 import tablut_player.strategy as strat
 import tablut_player.utils as utils
+import tablut_player.heuristic as heu
 from tablut_player.board import TablutBoardGUI
 from tablut_player.game import TablutGame
 from tablut_player.strategy import get_move
@@ -146,9 +147,9 @@ def play():
             game.display(game_state)
             print(f'My move: {my_move}')
             print(
-                f'King Heu:{strat.king_moves_to_goals_count(game_state.pawns)}')
-            print(f'White Heu:{strat.white_heuristic(game.turn,game_state)}')
-            print(f'Black Heu:{strat.black_heuristic(game.turn,game_state)}')
+                f'King Heu:{heu.king_moves_to_goals_count(game_state.pawns)}')
+            print(f'White Heu:{heu.white_heuristic(game.turn,game_state)}')
+            print(f'Black Heu:{heu.black_heuristic(game.turn,game_state)}')
 
             action_queue.put((my_move, game_state.to_move))
             get_state(state_queue, exception_queue)  # Get my move
@@ -165,9 +166,9 @@ def play():
             game.display(game_state)
             print(f'Enemy move: {enemy_move}')
             print(
-                f'King Heu:{strat.king_moves_to_goals_count(game_state.pawns)}')
-            print(f'White Heu:{strat.white_heuristic(game.turn,game_state)}')
-            print(f'Black Heu:{strat.black_heuristic(game.turn,game_state)}')
+                f'King Heu:{heu.king_moves_to_goals_count(game_state.pawns)}')
+            print(f'White Heu:{heu.white_heuristic(game.turn,game_state)}')
+            print(f'Black Heu:{heu.black_heuristic(game.turn,game_state)}')
 
     except Exception:
         print(traceback.format_exc())

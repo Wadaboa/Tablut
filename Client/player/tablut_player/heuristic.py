@@ -104,7 +104,7 @@ def king_moves_to_goals_count(pawns):
         elif distance == 1:
             total += 15
         elif distance == 2:
-            total += 3  # 1
+            total += 1  # 1
     return total
 
 

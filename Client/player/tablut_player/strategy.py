@@ -23,12 +23,25 @@ class TranspositionTableEntryType(Enum):
 
     EXACT, LOWER, UPPER = range(3)
 
+    def __str__(self):
+        return f'{self.name}'
+
+    def __repr__(self):
+        return f'Type: {self.name}'
+
 
 class TranspositionTableEntry:
 
     def __init__(self, valued_action, depth, node_type):
-        self.__dict__.update(
-            valued_action=valued_action, depth=depth, node_type=node_type
+        self.valued_action = valued_action
+        self.depth = depth
+        self.node_type = node_type
+
+    def __repr__(self):
+        return (
+            f'Action: {self.valued_action}\n'
+            f'Depth: {self.depth}\n'
+            f'Type: {self.node_type}'
         )
 
 
@@ -43,16 +56,19 @@ class TranspositionTable:
 
     def get_value(self, state, depth, alpha, beta):
         entry = self.table.get(hash(state))
-        if entry is not None and entry.depth <= depth:
+        value = None
+        if entry is not None and entry.depth >= depth:
             if entry.node_type == TranspositionTableEntryType.EXACT:
-                return entry.valued_action.value
-            elif (entry.node_type == TranspositionTableEntryType.UPPER and
-                  entry.valued_action.value <= alpha):
-                return alpha
+                value = entry.valued_action.value
             elif (entry.node_type == TranspositionTableEntryType.LOWER and
-                  entry.valued_action.value >= beta):
-                return beta
-        return None
+                  entry.valued_action.value > alpha):
+                alpha = entry.valued_action.value
+            elif (entry.node_type == TranspositionTableEntryType.UPPER and
+                  entry.valued_action.value < beta):
+                beta = entry.valued_action.value
+            if alpha >= beta:
+                value = entry.valued_action.value
+        return value, alpha, beta
 
     def put_action(self, valued_action, depth, node_type):
         self.table[hash(valued_action.state)] = TranspositionTableEntry(
@@ -78,69 +94,94 @@ def alphabeta_search(game, state, eval_fn, cutoff, timeout, max_depth):
 
     def max_value(action, alpha, beta, depth, max_d):
         state = action.state
-        value = TABLE.get_value(state, depth, alpha, beta)
+        value, alpha, beta = TABLE.get_value(state, depth, alpha, beta)
         if value is not None:
             return value, 1
-        if cutoff(game, state, depth, max_d, start_time, timeout):
+        if cutoff(game, state, depth, start_time, timeout):
             value = eval_fn(game.turn, action.state)
+            node_type = TranspositionTableEntryType.EXACT
+            if value <= alpha:
+                node_type = TranspositionTableEntryType.LOWER
+            elif value >= beta:
+                node_type = TranspositionTableEntryType.UPPER
             TABLE.put_action(
                 gutils.TablutValuedAction.from_action(action, value),
-                depth, TranspositionTableEntryType.EXACT
+                max_d, node_type
             )
             return value, 1
         value = -INF
         total = 0
         for new_action in game.actions(state):
             new_value, index = min_value(
-                new_action, alpha, beta, depth + 1, max_d
+                new_action, alpha, beta, depth - 1, max_d
             )
             value = max(value, new_value)
             total += index
             if value >= beta:
+                '''
                 TABLE.put_action(
-                    gutils.TablutValuedAction.from_action(new_action, value),
-                    depth, TranspositionTableEntryType.LOWER
+                    gutils.TablutValuedAction.from_action(action, value),
+                    max_d, TranspositionTableEntryType.UPPER
                 )
+                '''
                 return value, total
             alpha = max(alpha, value)
 
+        node_type = TranspositionTableEntryType.EXACT
+        if value <= alpha:
+            node_type = TranspositionTableEntryType.LOWER
+        elif value >= beta:
+            node_type = TranspositionTableEntryType.UPPER
         TABLE.put_action(
             gutils.TablutValuedAction.from_action(action, value),
-            depth, TranspositionTableEntryType.EXACT
+            max_d, node_type
         )
         return value, total
 
     def min_value(action, alpha, beta, depth, max_d):
         state = action.state
-        value = TABLE.get_value(state, depth, alpha, beta)
+        value, alpha, beta = TABLE.get_value(state, depth, alpha, beta)
         if value is not None:
             return value, 1
-        if cutoff(game, state, depth, max_d, start_time, timeout):
+        if cutoff(game, state, depth, start_time, timeout):
             value = eval_fn(game.turn, action.state)
+            value = eval_fn(game.turn, action.state)
+            node_type = TranspositionTableEntryType.EXACT
+            if value <= alpha:
+                node_type = TranspositionTableEntryType.LOWER
+            elif value >= beta:
+                node_type = TranspositionTableEntryType.UPPER
             TABLE.put_action(
                 gutils.TablutValuedAction.from_action(action, value),
-                depth, TranspositionTableEntryType.EXACT
+                max_d, node_type
             )
             return value, 1
         value = INF
         total = 0
         for new_action in game.actions(state):
             new_value, index = max_value(
-                new_action, alpha, beta, depth + 1, max_d
+                new_action, alpha, beta, depth - 1, max_d
             )
             value = min(value, new_value)
             total += index
             if value <= alpha:
+                '''
                 TABLE.put_action(
-                    gutils.TablutValuedAction.from_action(new_action, value),
-                    depth, TranspositionTableEntryType.UPPER
+                    gutils.TablutValuedAction.from_action(action, value),
+                    best_move, max_d, TranspositionTableEntryType.UPPER
                 )
+                '''
                 return value, total
             beta = min(beta, value)
 
+        node_type = TranspositionTableEntryType.EXACT
+        if value <= alpha:
+            node_type = TranspositionTableEntryType.LOWER
+        elif value >= beta:
+            node_type = TranspositionTableEntryType.UPPER
         TABLE.put_action(
             gutils.TablutValuedAction.from_action(action, value),
-            depth, TranspositionTableEntryType.EXACT
+            max_d, node_type
         )
         return value, total
 
@@ -150,27 +191,27 @@ def alphabeta_search(game, state, eval_fn, cutoff, timeout, max_depth):
     best_action = None
     big_total = 0
     print(f'Ricerca Mosse:')
-    for max_d in range(1, max_depth + 1):
+    for max_d in range(max_depth, -1, -1):
         for action in game.actions(state):
             move = action.move
             value, total = min_value(
-                action, best_score, beta, 1, max_d
+                action, best_score, beta, max_depth - max_d, max_d
             )
             big_total += total
             print(f'Mossa analizzata {move}')
             if value > best_score:
                 print(
                     f'Old best score {best_score}, new best score {value}\n'
-                    f'Old best action {best_action}, new best action {move}\n'
+                    f'Old best action {best_action.move if best_action is not None else "None"}, new best action {move}\n'
                     f'Total moves Analized: {total} \n'
                 )
                 best_score = value
                 best_action = action
             if not in_time(start_time, timeout):
                 break
-        print(f'FINITO DEPTH {max_d}')
+        print(f'FINITO DEPTH {max_depth - max_d}')
     print(f' The total amount of moves analized is {big_total}')
-    TABLE.clear()
+    print(TABLE.table[hash(best_action.state)])
     return best_action.move
 
 # ______________________________________________________________________________
@@ -359,7 +400,7 @@ def monte_carlo_player(game, state, timeout, max_it=1000):
     )
 
 
-def alphabeta_cutoff(game, state, depth, max_depth, start_time, timeout):
+def alphabeta_cutoff(game, state, depth, start_time, timeout):
     '''
     Cut the search when the given state in the search tree is a final state,
     when there's no time left, or when the search depth has reached
@@ -369,7 +410,7 @@ def alphabeta_cutoff(game, state, depth, max_depth, start_time, timeout):
         print('TIMEOUT')
         print(depth)
     return (
-        depth >= max_depth or
+        depth == 0 or
         game.terminal_test(state) or
         not in_time(start_time, timeout)
     )

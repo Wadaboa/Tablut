@@ -15,7 +15,11 @@ ZobristKeys = namedtuple('ZobristKeys', 'board, to_move')
 class TablutAction:
 
     def __init__(self, move, state):
-        self.__dict__.update(move=move, state=state)
+        self.move = move
+        self.state = state
+
+    def __repr__(self):
+        return f'Move: {self.move}\nState: {self.state}'
 
 
 class TablutValuedAction(TablutAction):
@@ -27,6 +31,9 @@ class TablutValuedAction(TablutAction):
     @classmethod
     def from_action(cls, action, value):
         return cls(action.move, action.state, value)
+
+    def __repr__(self):
+        return f'Move:{self.move}\nState: {self.state}\nValue: {self.value}'
 
 
 class TablutGameState:
