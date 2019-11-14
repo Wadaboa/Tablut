@@ -140,6 +140,26 @@ class TablutBoard():
         return None
 
     @classmethod
+    def from_direction_to_pawn(cls, initial_pawn_coords, pawn_direction):
+        if pawn_direction == TablutPawnDirection.UP:
+            return TablutBoardPosition(
+                row=initial_pawn_coords.row - 1, col=initial_pawn_coords.col
+            )
+        elif pawn_direction == TablutPawnDirection.DOWN:
+            return TablutBoardPosition(
+                row=initial_pawn_coords.row + 1, col=initial_pawn_coords.col
+            )
+        elif pawn_direction == TablutPawnDirection.LEFT:
+            return TablutBoardPosition(
+                row=initial_pawn_coords.row, col=initial_pawn_coords.col - 1
+            )
+        elif pawn_direction == TablutPawnDirection.RIGHT:
+            return TablutBoardPosition(
+                row=initial_pawn_coords.row, col=initial_pawn_coords.col + 1
+            )
+        return None
+
+    @classmethod
     def _blocked_positions(cls, pawn_coords, pawn_direction):
         '''
         Given a pawn position and a pawn direction, return every
@@ -279,7 +299,7 @@ class TablutBoard():
             return n_moves
         moves = cls.legal_moves(pawns, initial_coords)
         if len(moves) <= 0:
-            return max_moves
+            return max_moves + 1
         moves_counter = []
         for move in moves:
             if (initial_coords.distance(final_coords) >
@@ -302,6 +322,14 @@ class TablutBoard():
         up_pawn = TablutBoardPosition(row=pawn.row - k, col=pawn.col)
         down_pawn = TablutBoardPosition(row=pawn.row + k, col=pawn.col)
         return [left_pawn, right_pawn, up_pawn, down_pawn]
+
+    @classmethod
+    def is_king_in_castle(cls, pawns):
+        return cls.king_position(pawns) == cls.CASTLE
+
+    @classmethod
+    def is_king_near_castle(cls, pawns):
+        return cls.king_position(pawns) in cls.k_neighbors(cls.CASTLE, k=1)
 
     @classmethod
     def potential_king_killers(cls, pawns):

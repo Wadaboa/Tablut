@@ -105,7 +105,6 @@ def autoplay(gui):
         )
         game_state = game.result(game_state, enemy_move)
         update_gui(gui, game_state.pawns)
-
     winner = game.utility(
         game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
     )

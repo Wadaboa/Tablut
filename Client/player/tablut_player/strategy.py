@@ -356,7 +356,7 @@ def ucb(node, const=math.sqrt(2)):
 
 
 def get_move(game, state, timeout, max_depth=4):
-    # move = None
+    #move = None
     move = alphabeta_player(game, state, timeout, max_depth)
     # move = negascout_player(game, state, max_depth)
     # move = monte_carlo_player(game, state, timeout)

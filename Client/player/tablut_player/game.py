@@ -201,7 +201,7 @@ class TablutGame(Game):
         valued_actions = []
         for action in self.actions(state):
             valued_actions.append(
-                gutils.TablutValuedAction(
+                gutils.TablutValuedAction.from_action(
                     action=action,
                     value=heu.heuristic(
                         self.turn,
@@ -209,7 +209,7 @@ class TablutGame(Game):
                     )
                 )
             )
-        valued_actions.sort(key=lambda action: action.value)
+        valued_actions.sort(reverse=True, key=lambda action: action.value)
         return valued_actions
 
     def result(self, state, move):
