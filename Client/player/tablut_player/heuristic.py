@@ -72,10 +72,16 @@ OUTER_CORNERS = {
     ]
 }
 
+
 def heuristic(turn, state):
     '''
-    Black player heuristic function
+    Heuristic function
     '''
+    values = [blocked_goals(state), piece_difference(
+        state), king_moves_to_goals(state), king_killers(state)]
+    for value in values:
+        if value == -1 or value == 1:
+            return value
     if turn < 20:
         value = 3 * blocked_goals(state)
         value += piece_difference(state)
@@ -94,7 +100,7 @@ def heuristic(turn, state):
         value += 6 * king_moves_to_goals(state)
         value += 6 * king_killers(state)
         value = value/16
-    value += random_perturbation()
+    #value += random_perturbation()
     return value
 
 
