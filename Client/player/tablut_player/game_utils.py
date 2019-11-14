@@ -33,7 +33,7 @@ class TablutValuedAction(TablutAction):
         return cls(action.move, action.state, value)
 
     def __repr__(self):
-        return f'Move:{self.move}\nState: {self.state}\nValue: {self.value}'
+        return f'Move: {self.move}\nState: {self.state}\nValue: {self.value}'
 
 
 class TablutGameState:

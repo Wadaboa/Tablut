@@ -16,8 +16,8 @@ from tablut_player.utils import INF
 
 class TranspositionTableEntryType(Enum):
     '''
-    Search strategy node alpha-beta type.
-    It could represent the exact value of a position, its lower bound (beta)
+    Search strategy node alpha-beta type. It could represent
+    the exact value of a position, its lower bound (beta),
     or its upper bound (alpha).
     '''
 
@@ -221,56 +221,6 @@ def alphabeta_search(game, state, eval_fn, cutoff, timeout, max_depth):
     print(TABLE.table[hash(best_action.state)])
     return best_action.move
 
-# ______________________________________________________________________________
-# Negascout tree search
-
-
-def negascout_search(game, state, eval_fn, depth, alpha, beta):
-    '''
-    Negascout search
-    '''
-
-    def failsoft_alphabeta(state, depth, alpha, beta):
-        best_move = None
-        current = -INF
-        if game.terminal_test(state) or depth <= 0:
-            return eval_fn(game.turn, state)
-        for action in game.actions(state):
-            score = -failsoft_alphabeta(action.state,
-                                        depth - 1, -beta, -alpha)
-            if score >= current:
-                current = score
-                best_move = action.move
-                if score >= alpha:
-                    alpha = score
-                if score >= beta:
-                    break
-        return current
-
-    def negascout(game, state, eval_fn, depth, alpha, beta):
-        if game.terminal_test(state) or depth <= 0:
-            return eval_fn(game.turn, state)
-        actions = game.actions(state)
-        best_move = actions[0].move
-        new_state = actions[0].state
-        current = -failsoft_alphabeta(new_state, depth - 1, -beta, -alpha)
-        for action in actions[1:]:
-            score = -failsoft_alphabeta(action.state,
-                                        depth - 1, -alpha - 1, -alpha)
-            if score > alpha and score < beta:
-                score = - \
-                    failsoft_alphabeta(action.state, depth - 1, -beta, -alpha)
-            if score >= current:
-                current = score
-                best_move = action.move
-                if score >= alpha:
-                    alpha = score
-                if score >= beta:
-                    break
-        return best_move
-
-    return negascout(game, state, eval_fn, depth, alpha, beta)
-
 
 # ______________________________________________________________________________
 # Monte Carlo tree search
@@ -367,11 +317,13 @@ def ucb(node, const=math.sqrt(2)):
 
 def get_move(game, state, timeout, max_depth=4):
     # move = None
-    move = alphabeta_player(game, state, timeout, max_depth)
+    #move = alphabeta_player(game, state, timeout, max_depth)
     # move = negascout_player(game, state, max_depth)
     # move = monte_carlo_player(game, state, timeout)
-    #value, move = NegamaxAB(game, state, depth=3, alpha=-1, beta=1)
-    # print(value)
+    value, move = negascout_alphabeta(
+        game, state, depth=3, alpha=-INF, beta=INF
+    )
+    print(value)
     print(move)
     if move is None:
         print('Alphabeta failure')
@@ -392,15 +344,6 @@ def alphabeta_player(game, state, timeout, max_depth):
     '''
     return alphabeta_search(
         game, state, heu.heuristic, alphabeta_cutoff, timeout, max_depth
-    )
-
-
-def negascout_player(game, state, max_depth):
-    '''
-    Negascout player
-    '''
-    return negascout_search(
-        game, state, heu.heuristic, max_depth, -INF, INF
     )
 
 
@@ -447,19 +390,85 @@ def in_time(start_time, timeout):
     return time.time() - start_time < timeout
 
 
-def NegamaxAB(game, state, depth, alpha, beta):
-    if depth == 0 or game.terminal_test(state):
+def failsoft_negamax_alphabeta(game, state, depth, alpha, beta):
+    '''
+    Negamax with alpha-beta pruning, implemented in a fail-soft way, which
+    means that if it fails it still returns the best result found so far.
+    The fail-hard version would only return either alpha or beta.
+    '''
+    if game.terminal_test(state) or depth == 0:
         return heu.heuristic(game.turn, state), None
-    bestValue = -INF
-    bestMove = None
+    best_move = None
+    best_value = -INF
     for move in game.moves(state):
         new_state = game.result(state, move)
-        value, _ = NegamaxAB(game, new_state, depth - 1, -beta, -alpha)
-        value = -value
-        if value > bestValue:
-            bestValue = value
-            bestMove = move
-        alpha = max(alpha, value)
-        if alpha >= beta:
-            break
-    return bestValue, bestMove
+        recursed_value, _ = failsoft_negamax_alphabeta(
+            game=game,
+            state=new_state,
+            depth=depth - 1,
+            alpha=-beta,
+            beta=-max(alpha, best_value)
+        )
+        current_value = -recursed_value
+        if current_value > best_value:
+            best_value = current_value
+            best_move = move
+            if best_value >= beta:
+                return best_value, best_move
+    return best_value, best_move
+
+
+def aspiration(game, state, depth, alpha, beta, previous, window_size):
+    '''
+    Aspiration search
+    '''
+    alpha = previous - window_size
+    beta = previous + window_size
+    while True:
+        result, move = failsoft_negamax_alphabeta(
+            game, state, depth, alpha, beta
+        )
+        if result <= alpha:
+            alpha = -INF
+        elif result >= beta:
+            beta = INF
+        else:
+            return result, move
+
+
+def negascout_alphabeta(game, state, depth, alpha, beta):
+    '''
+    Negascout with alpha-beta pruning
+    '''
+    if game.terminal_test(state) or depth == 0:
+        return heu.heuristic(game.turn, state), None
+    best_move = None
+    best_value = -INF
+    adaptive_beta = beta
+    for move in game.moves(state):
+        new_state = game.result(state, move)
+        recursed_value, _ = negascout_alphabeta(
+            game=game,
+            state=new_state,
+            depth=depth - 1,
+            alpha=-adaptive_beta,
+            beta=-max(alpha, best_value)
+        )
+        current_value = -recursed_value
+        if current_value > best_value:
+            if adaptive_beta == beta or depth < 3 or current_value >= beta:
+                best_value = current_value
+                best_move = move
+            else:
+                negative_best_value, best_move = negascout_alphabeta(
+                    game=game,
+                    state=new_state,
+                    depth=depth - 1,
+                    alpha=-beta,
+                    beta=-current_value
+                )
+                best_value = -negative_best_value
+            if best_value >= beta:
+                return best_value, best_move
+            adaptive_beta = max(alpha, best_value) + 1
+    return best_value, best_move

@@ -13,7 +13,7 @@ from tablut_player.game_utils import (
     TablutPawnDirection
 )
 from tablut_player.board import TablutBoard
-from tablut_player.utils import INF
+
 
 CORNERS = {
     (TablutPawnDirection.UP, TablutPawnDirection.LEFT),
@@ -21,8 +21,6 @@ CORNERS = {
     (TablutPawnDirection.DOWN, TablutPawnDirection.LEFT),
     (TablutPawnDirection.DOWN, TablutPawnDirection.RIGHT)
 }
-
-
 GOALS = {
     (TablutPawnDirection.UP, TablutPawnDirection.LEFT): [
         TablutBoardPosition(row=2, col=0), TablutBoardPosition(row=0, col=2),
@@ -41,7 +39,6 @@ GOALS = {
         TablutBoardPosition(row=6, col=8), TablutBoardPosition(row=7, col=8)
     ]
 }
-
 BEST_BLOCKING_POSITIONS = {
     (TablutPawnDirection.UP, TablutPawnDirection.LEFT): [
         TablutBoardPosition(row=2, col=1), TablutBoardPosition(row=1, col=2),
@@ -56,7 +53,6 @@ BEST_BLOCKING_POSITIONS = {
         TablutBoardPosition(row=6, col=7), TablutBoardPosition(row=7, col=6)
     ]
 }
-
 OUTER_CORNERS = {
     (TablutPawnDirection.UP, TablutPawnDirection.LEFT): [
         TablutBoardPosition(row=1, col=1)
@@ -75,7 +71,7 @@ OUTER_CORNERS = {
 
 def heuristic(turn, state):
     '''
-    Heuristic function
+    Game state evaluation function
     '''
     values = [blocked_goals(state), piece_difference(
         state), king_moves_to_goals(state), king_killers(state)]
@@ -108,16 +104,15 @@ def king_moves_to_goals(state):
     '''
     Return a value representing the number of king moves to every goal.
     Given a state, it checks the min number of moves to each goal,
-    and return a positive value if we are within 1-2-3 moves
-    to a certain goal, and an even higher value
-    if we are within 1-2-3 moves to more than one corner
-    in range [-1,1]
+    and return a positive value if we are within 1 to 3 moves
+    to a certain goal, and an even higher value if we are within
+    1 to 3 moves to more than one corner, in range [-1, 1]
     '''
     max_moves = 4
     upper_bound = 0.8
     distances = []
     player = gutils.other_player(state.to_move)
-    value = -(1/4)
+    value = -(1 / 4)
     check = False
     if TablutBoard.is_king_dead(state.pawns):
         value = -1
@@ -137,7 +132,7 @@ def king_moves_to_goals(state):
             value = 0
             distances.sort()
             for ind, distance in enumerate(distances):
-                tmp = (2**(-ind-1))/distance
+                tmp = (2 ** (-ind - 1)) / distance
                 if value + tmp > upper_bound:
                     break
                 value += tmp
@@ -149,7 +144,7 @@ def king_moves_to_goals(state):
 def blocked_goals(state):
     '''
     Return a value representing the number of blocked white goals
-    for each corner in range [-1,1]
+    for each corner, in range [-1, 1]
     '''
     total = 0.0
     player = gutils.other_player(state.to_move)
@@ -184,24 +179,24 @@ def blocked_goals(state):
         total += value
     if player == TablutPlayerType.WHITE:
         total = -total
-    return total * (1/16)
+    return total * (1 / 16)
 
 
 def king_killers(state):
     '''
     Return a value representing the number of black pawns,
-    camps and castle around the king in range [-1,1]
+    camps and castle around the king, in range [-1, 1]
     '''
     value = 0.0
     player = gutils.other_player(state.to_move)
     if TablutBoard.is_king_dead(state.pawns):
         value = 1
     elif TablutBoard.is_king_in_castle(state.pawns):
-        value = TablutBoard.potential_king_killers(state.pawns) * (1/5)
+        value = TablutBoard.potential_king_killers(state.pawns) * (1 / 5)
     elif TablutBoard.is_king_near_castle(state.pawns):
-        value = TablutBoard.potential_king_killers(state.pawns) * (1/4)
+        value = TablutBoard.potential_king_killers(state.pawns) * (1 / 4)
     else:
-        value = TablutBoard.potential_king_killers(state.pawns) * (1/3)
+        value = TablutBoard.potential_king_killers(state.pawns) * (1 / 3)
     if player == TablutPlayerType.WHITE:
         value = -value
     return value
@@ -216,22 +211,22 @@ def board_coverage_count(state):
     pass
 
 
-def random_perturbation(r=0.001):
+def random_perturbation(radius=0.001):
     '''
-    Return a random number in the symmetric interval [-r, r]
+    Return a random number in the symmetric interval [-radius, radius]
     '''
-    return random.uniform(-r, r)
+    return random.uniform(-radius, radius)
 
 
 def piece_difference(state):
     '''
-    Return an evaluation of the pawn difference in range [-1,1]
+    Return an evaluation of the pawn difference, in range [-1, 1]
     '''
     player = gutils.other_player(state.to_move)
     diff = (
-        (1/2)*len(state.pawns[TablutPawnType.BLACK]) -
+        (1 / 2) * len(state.pawns[TablutPawnType.BLACK]) -
         len(state.pawns[TablutPawnType.WHITE])
     )
     if player == TablutPlayerType.WHITE:
         diff = -diff
-    return diff * (1/8)
+    return diff * (1 / 8)
