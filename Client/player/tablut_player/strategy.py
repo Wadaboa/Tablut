@@ -317,10 +317,10 @@ def ucb(node, const=math.sqrt(2)):
 
 def get_move(game, state, timeout, max_depth=4):
     # move = None
-    #move = alphabeta_player(game, state, timeout, max_depth)
+    # move = alphabeta_player(game, state, timeout, max_depth)
     # move = negascout_player(game, state, max_depth)
     # move = monte_carlo_player(game, state, timeout)
-    value, move = negascout_alphabeta(
+    value, move = iterative_deepening_negamax(
         game, state, depth=3, alpha=-INF, beta=INF
     )
     print(value)
@@ -390,24 +390,48 @@ def in_time(start_time, timeout):
     return time.time() - start_time < timeout
 
 
-def failsoft_negamax_alphabeta(game, state, depth, alpha, beta):
+def failsoft_negamax_alphabeta(game, state, depth, alpha, beta,
+                               moves=None, tt=None):
     '''
     Negamax with alpha-beta pruning, implemented in a fail-soft way, which
     means that if it fails it still returns the best result found so far.
     The fail-hard version would only return either alpha or beta.
     '''
+    # Lookup transposition table
+    if tt is not None:
+        entry = tt.get_entry(state)
+        if entry is not None and entry.depth >= depth:
+            if entry.entry_type == TTEntryType.EXACT:
+                print('get1')
+                return entry.best_move
+            elif (entry.node_type == TTEntryType.LOWER and
+                  entry.valued_action.value > alpha):
+                print('get2')
+                alpha = entry.value
+            elif (entry.node_type == TTEntryType.UPPER and
+                  entry.valued_action.value < beta):
+                print('get3')
+                beta = entry.value
+            if alpha >= beta:
+                print('get4')
+                return entry.best_move
+
+    # Negamax
     if game.terminal_test(state) or depth == 0:
         return heu.heuristic(game.turn, state), None
+    if moves is None:
+        moves = game.moves(state)
     best_move = None
     best_value = -INF
-    for move in game.moves(state):
+    for move in moves:
         new_state = game.result(state, move)
         recursed_value, _ = failsoft_negamax_alphabeta(
             game=game,
             state=new_state,
             depth=depth - 1,
             alpha=-beta,
-            beta=-max(alpha, best_value)
+            beta=-max(alpha, best_value),
+            tt=tt
         )
         current_value = -recursed_value
         if current_value > best_value:
@@ -415,6 +439,47 @@ def failsoft_negamax_alphabeta(game, state, depth, alpha, beta):
             best_move = move
             if best_value >= beta:
                 return best_value, best_move
+
+    # Update transposition table
+    if tt is not None:
+        entry = TTEntry(
+            key=hash(state),
+            entry_type=None,
+            value=best_value,
+            depth=depth,
+            best_move=best_move
+        )
+        if best_value <= alpha:
+            entry.entry_type = TTEntryType.LOWER
+        elif best_value >= beta:
+            entry.entry_type = TTEntryType.UPPER
+        else:
+            entry.entry_type = TTEntryType.EXACT
+        tt.store_entry(entry)
+
+    return best_value, best_move
+
+
+def iterative_deepening_negamax(game, state, depth, alpha, beta):
+    '''
+    Fail-soft negamax with alpha-beta pruning and iterative deepening
+    '''
+    best_value = alpha
+    best_move = None
+    moves = list(state.moves)
+    tt = TT()
+    for d in range(1, depth + 1):
+        value, move = failsoft_negamax_alphabeta(
+            game, state, d, best_value, beta, moves, tt
+        )
+        if move is not None and value > best_value:
+            best_value = value
+            best_move = move
+            moves.remove(best_move)
+            moves.insert(0, best_move)
+            print(f'The best move is {best_move}')
+        print(f'END DEPTH {d}')
+    tt.clear()
     return best_value, best_move
 
 
@@ -460,7 +525,7 @@ def negascout_alphabeta(game, state, depth, alpha, beta):
                 best_value = current_value
                 best_move = move
             else:
-                negative_best_value, best_move = negascout_alphabeta(
+                negative_best_value, _ = negascout_alphabeta(
                     game=game,
                     state=new_state,
                     depth=depth - 1,
@@ -472,3 +537,63 @@ def negascout_alphabeta(game, state, depth, alpha, beta):
                 return best_value, best_move
             adaptive_beta = max(alpha, best_value) + 1
     return best_value, best_move
+
+
+class TTEntryType(Enum):
+    '''
+    Search strategy node alpha-beta type. It could represent
+    the exact value of a position, its lower bound (beta),
+    or its upper bound (alpha).
+    '''
+
+    EXACT, LOWER, UPPER = range(3)
+
+    def __str__(self):
+        return f'{self.name}'
+
+    def __repr__(self):
+        return f'Type: {self.name}'
+
+
+class TTEntry:
+
+    def __init__(self, key, entry_type, value, depth, best_move):
+        self.key = key
+        self.entry_type = entry_type
+        self.value = value
+        self.depth = depth
+        self.best_move = best_move
+
+    def __repr__(self):
+        return (
+            f'Key: {self.key}\n'
+            f'Type: {self.entry_type}\n'
+            f'Value: {self.value}\n'
+            f'Depth: {self.depth}\n'
+            f'Best move: {self.best_move}'
+        )
+
+
+class TT:
+
+    TABLE_SIZE = 4000
+
+    def __init__(self):
+        self.table = {}
+
+    def get_entry(self, state):
+        hash_value = hash(state)
+        entry = self.table.get(hash_value % self.TABLE_SIZE)
+        if entry is not None and entry.key == hash_value:
+            return entry
+        return None
+
+    def get_value(self, state):
+        entry = self.get_entry(state)
+        return entry.value if entry is not None else None
+
+    def store_entry(self, entry):
+        self.table[entry.key % self.TABLE_SIZE] = entry
+
+    def clear(self):
+        self.table = {}
