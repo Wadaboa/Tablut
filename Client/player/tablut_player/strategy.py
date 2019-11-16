@@ -316,14 +316,19 @@ def ucb(node, const=math.sqrt(2)):
 
 
 def get_move(game, state, timeout, max_depth=4):
-    # move = None
+    #move = None
     # move = alphabeta_player(game, state, timeout, max_depth)
-    # move = negascout_player(game, state, max_depth)
     # move = monte_carlo_player(game, state, timeout)
-    value, move = iterative_deepening_negamax(
-        game, state, depth=3, alpha=-INF, beta=INF
-    )
-    print(value)
+    # value, move = iterative_deepening_negamax(
+    #    game, state, depth=3, alpha=-INF, beta=INF
+    # )
+    # value, move = failsoft_negamax_alphabeta(game, state, 2, -INF, INF)
+    # value, move = negascout_alphabeta(game, state, 1, -INF, INF)
+    if game.turn < 3:
+        move = random_player(state)
+    else:
+        move = alphabeta_cutoff_search(state, game, d=0, timeout=60)
+    # print(value)
     print(move)
     if move is None:
         print('Alphabeta failure')
@@ -362,13 +367,10 @@ def alphabeta_cutoff(game, state, depth, start_time, timeout):
     when there's no time left, or when the search depth has reached
     the given maximum
     '''
-    if not in_time(start_time, timeout):
-        print('TIMEOUT')
-        print(depth)
+    # or not in_time(start_time, timeout)
     return (
         depth == 0 or
-        game.terminal_test(state) or
-        not in_time(start_time, timeout)
+        game.terminal_test(state)
     )
 
 
@@ -397,6 +399,7 @@ def failsoft_negamax_alphabeta(game, state, depth, alpha, beta,
     means that if it fails it still returns the best result found so far.
     The fail-hard version would only return either alpha or beta.
     '''
+    '''
     # Lookup transposition table
     if tt is not None:
         entry = tt.get_entry(state)
@@ -415,12 +418,14 @@ def failsoft_negamax_alphabeta(game, state, depth, alpha, beta,
             if alpha >= beta:
                 print('get4')
                 return entry.best_move
-
+    '''
+    random.seed(int(time.time()))
     # Negamax
     if game.terminal_test(state) or depth == 0:
         return heu.heuristic(game.turn, state), None
     if moves is None:
-        moves = game.moves(state)
+        moves = list(game.moves(state))
+        random.shuffle(moves)
     best_move = None
     best_value = -INF
     for move in moves:
@@ -437,9 +442,12 @@ def failsoft_negamax_alphabeta(game, state, depth, alpha, beta,
         if current_value > best_value:
             best_value = current_value
             best_move = move
+            print(
+                f'Nuova best move per {state.to_move} :{best_move} Best-value:{best_value} - Depth: {depth}')
             if best_value >= beta:
+                print(f'Taglio effettuato Beta:{beta} Best-value:{best_value}')
                 return best_value, best_move
-
+    '''
     # Update transposition table
     if tt is not None:
         entry = TTEntry(
@@ -456,7 +464,9 @@ def failsoft_negamax_alphabeta(game, state, depth, alpha, beta,
         else:
             entry.entry_type = TTEntryType.EXACT
         tt.store_entry(entry)
-
+    '''
+    print(
+        f'Nuova mossa per {state.to_move} : {best_move} - Heu: {best_value} - Depth: {depth}')
     return best_value, best_move
 
 
@@ -467,6 +477,7 @@ def iterative_deepening_negamax(game, state, depth, alpha, beta):
     best_value = alpha
     best_move = None
     moves = list(state.moves)
+    random.shuffle(moves)
     tt = TT()
     for d in range(1, depth + 1):
         value, move = failsoft_negamax_alphabeta(
@@ -597,3 +608,59 @@ class TT:
 
     def clear(self):
         self.table = {}
+
+
+def alphabeta_cutoff_search(state, game, d=4, timeout=60):
+    """Search game to determine best action; use alpha-beta pruning.
+    This version cuts off search and uses an evaluation function."""
+
+    player = game.to_move(state)
+
+    # Functions used by alphabeta
+    def max_value(state, alpha, beta, depth):
+        if alphabeta_cutoff(game, state, depth, start_time, timeout):
+            return heu.heuristic(game.turn, state)
+        v = -INF
+        moves = list(game.moves(state))
+        random.seed(time.time())
+        random.shuffle(moves)
+        for move in moves:
+            v = max(v, min_value(game.result(state, move),
+                                 alpha, beta, depth - 1))
+            if v >= beta:
+                return v
+            alpha = max(alpha, v)
+        return v
+
+    def min_value(state, alpha, beta, depth):
+        if alphabeta_cutoff(game, state, depth, start_time, timeout):
+            return heu.heuristic(game.turn, state)
+        v = INF
+        moves = list(game.moves(state))
+        random.seed(time.time())
+        random.shuffle(moves)
+        for move in moves:
+            v = min(v, max_value(game.result(state, move),
+                                 alpha, beta, depth - 1))
+            if v <= alpha:
+                return v
+            beta = min(beta, v)
+        return v
+
+    start_time = time.time()
+    best_score = -INF
+    beta = INF
+    best_action = None
+    moves = list(game.moves(state))
+    random.seed(time.time())
+    random.shuffle(moves)
+    for move in moves:
+        print(move)
+        v = min_value(game.result(state, move), best_score, beta, d)
+        if v > best_score:
+            best_score = v
+            best_action = move
+    final_time = time.time()-start_time
+    print(
+        f'Tempo di ricerca:{final_time} -heuristica migliore:{best_score} - mossa migliore:{best_action}')
+    return best_action

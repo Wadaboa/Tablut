@@ -90,21 +90,63 @@ def entry():
 def autoplay(gui):
     game = TablutGame()
     game_state = game.initial
+    '''
+    initial_pawns = {
+        gutils.TablutPawnType.WHITE: {
+            gutils.TablutBoardPosition(6, 4),
+            gutils.TablutBoardPosition(5, 4),
+            gutils.TablutBoardPosition(8, 2),
+            gutils.TablutBoardPosition(4, 5),
+            gutils.TablutBoardPosition(2, 0),
+            gutils.TablutBoardPosition(0, 6),
+            gutils.TablutBoardPosition(4, 2),
+            gutils.TablutBoardPosition(3, 4)
+        },
+        gutils.TablutPawnType.BLACK: {
+            gutils.TablutBoardPosition(4, 8),
+            gutils.TablutBoardPosition(5, 6),
+            gutils.TablutBoardPosition(6, 2),
+            gutils.TablutBoardPosition(0, 5),
+            gutils.TablutBoardPosition(0, 3),
+            gutils.TablutBoardPosition(0, 8),
+            gutils.TablutBoardPosition(8, 5),
+            gutils.TablutBoardPosition(5, 8),
+            gutils.TablutBoardPosition(4, 0),
+            gutils.TablutBoardPosition(2, 7),
+            gutils.TablutBoardPosition(8, 1),
+            gutils.TablutBoardPosition(6, 1),
+            gutils.TablutBoardPosition(7, 4),
+            gutils.TablutBoardPosition(0, 4),
+            gutils.TablutBoardPosition(4, 1),
+            gutils.TablutBoardPosition(8, 4)
+        },
+        gutils.TablutPawnType.KING: {gutils.TablutBoardPosition(4, 4)}
+    }
+    player = gutils.TablutPlayerType.WHITE
+    game_state = gutils.TablutGameState(
+        player,
+        0,
+        initial_pawns,
+        moves=TablutGame.player_moves(initial_pawns, player)
+    )
+    '''
     update_gui(gui, game_state.pawns)
     while not game.terminal_test(game_state):
         game.inc_turn()
-        my_move = get_move(
+        white_move = get_move(
             game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD
         )
-        game_state = game.result(game_state, my_move)
+        game_state = game.result(game_state, white_move)
         update_gui(gui, game_state.pawns)
         if game.terminal_test(game_state):
             break
-        enemy_move = get_move(
+        black_move = get_move(
             game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD
         )
-        game_state = game.result(game_state, enemy_move)
+        game_state = game.result(game_state, black_move)
         update_gui(gui, game_state.pawns)
+        # game.display(game_state)
+        time.sleep(3)
     winner = game.utility(
         game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
     )

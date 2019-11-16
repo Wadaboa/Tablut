@@ -13,6 +13,7 @@ from tablut_player.game_utils import (
     TablutPawnDirection
 )
 from tablut_player.board import TablutBoard
+from tablut_player.game import TablutGame
 
 
 CORNERS = {
@@ -71,32 +72,72 @@ OUTER_CORNERS = {
 
 def heuristic(turn, state):
     '''
-    Game state evaluation function
+    Game state evaluation function in range [-100,100]
+    with 1000, -1000 winning and losing scores
     '''
-    values = [blocked_goals(state), piece_difference(
-        state), king_moves_to_goals(state), king_killers(state)]
-    for value in values:
-        if value == -1 or value == 1:
-            return value
-    if turn < 20:
-        value = 3 * blocked_goals(state)
-        value += piece_difference(state)
-        value += 2 * king_moves_to_goals(state)
-        value += 2 * king_killers(state)
-        value = value/8
-    elif turn < 40:
-        value = 2 * blocked_goals(state)
-        value += 2 * piece_difference(state)
-        value += 3 * king_moves_to_goals(state)
-        value += 3 * king_killers(state)
-        value = value/10
+    values = [
+        blocked_goals(state),
+        piece_difference(state),
+        potential_kills(state),
+        king_moves_to_goals(state),
+        king_killers(state)
+    ]
+    if turn < 10:
+        weigths = [3, 1, 0.25, 2, 2]
+    elif turn < 20:
+        weigths = [2, 2, 0.3, 3, 3]
     else:
-        value = blocked_goals(state)
-        value += 3 * piece_difference(state)
-        value += 6 * king_moves_to_goals(state)
-        value += 6 * king_killers(state)
-        value = value/16
-    #value += random_perturbation()
+        weigths = [1, 3, 0.6, 6, 6]
+    good_weights = 0
+    score = 0
+    print([value*100 for value in values])
+    print(weigths)
+    print()
+    for value, weigth in zip(values, weigths):
+        if value == -1 or value == 1:
+            return value*1000
+        if value != 0:
+            good_weights += weigth
+        score += value * weigth
+    # value += random_perturbation()
+    return int((score * 100) / good_weights)
+
+
+def potential_kills(state):
+    '''
+    '''
+    def count_dead(moves, potential_killers, potential_victims):
+        count = 0
+        for _, to in moves:
+            killables = TablutBoard.k_neighbors(to, k=1)
+            killers = TablutBoard.k_neighbors(to, k=2)
+            for victim, killer in zip(killables, killers):
+                if victim in potential_victims and killer in potential_killers:
+                    count += 1
+        return count
+
+    player = gutils.other_player(state.to_move)
+    white_pawns = state.pawns[TablutPawnType.WHITE]
+    black_pawns = state.pawns[TablutPawnType.BLACK]
+    if state.to_move == TablutPlayerType.WHITE:
+        white_moves = state.moves
+        black_moves = TablutGame.player_moves(
+            state.pawns, TablutPlayerType.BLACK)
+    else:
+        black_moves = state.moves
+        white_moves = TablutGame.player_moves(
+            state.pawns, TablutPlayerType.WHITE)
+    black_dead = count_dead(white_moves, set(white_pawns).union(
+        {TablutBoard.CASTLE}, TablutBoard.OUTER_CAMPS), black_pawns)
+    white_dead = count_dead(black_moves, set(black_pawns).union(
+        {TablutBoard.CASTLE}, TablutBoard.OUTER_CAMPS), white_pawns)
+    value = black_dead - white_dead
+    if value < 0:
+        value = -1-(1/value)
+    elif value > 0:
+        value = 1-(1/value)
+    if player == TablutPlayerType.BLACK:
+        value = -value
     return value
 
 
@@ -112,7 +153,7 @@ def king_moves_to_goals(state):
     upper_bound = 0.8
     distances = []
     player = gutils.other_player(state.to_move)
-    value = -(1 / 4)
+    value = -(1 / 2)
     check = False
     if TablutBoard.is_king_dead(state.pawns):
         value = -1
@@ -120,7 +161,9 @@ def king_moves_to_goals(state):
         king = TablutBoard.king_position(state.pawns)
         for goal in TablutBoard.WHITE_GOALS:
             distance = TablutBoard.simulate_distance(
-                state.pawns, king, goal, n_moves=0, max_moves=max_moves
+                state.pawns, king, goal,
+                n_moves=0, max_moves=max_moves,
+                unwanted_positions=TablutBoard.WHITE_GOALS
             )
             if distance == 0:
                 value = 1
@@ -131,6 +174,7 @@ def king_moves_to_goals(state):
         if len(distances) > 0 and not check:
             value = 0
             distances.sort()
+            print(distances)
             for ind, distance in enumerate(distances):
                 tmp = (2 ** (-ind - 1)) / distance
                 if value + tmp > upper_bound:
@@ -189,14 +233,38 @@ def king_killers(state):
     '''
     value = 0.0
     player = gutils.other_player(state.to_move)
+    black_moves = state.moves
+    if state.to_move == TablutPlayerType.WHITE:
+        black_moves = TablutGame.player_moves(
+            state.pawns, TablutPlayerType.BLACK)
+    free_positions = []
     if TablutBoard.is_king_dead(state.pawns):
         value = 1
-    elif TablutBoard.is_king_in_castle(state.pawns):
-        value = TablutBoard.potential_king_killers(state.pawns) * (1 / 5)
-    elif TablutBoard.is_king_near_castle(state.pawns):
-        value = TablutBoard.potential_king_killers(state.pawns) * (1 / 4)
     else:
-        value = TablutBoard.potential_king_killers(state.pawns) * (1 / 3)
+        if TablutBoard.is_king_in_castle(state.pawns) or TablutBoard.is_king_near_castle(state.pawns):
+            value, free_positions = TablutBoard.potential_king_killers(
+                state.pawns)
+            if value == 3:
+                weight = 1 / 5
+            else:
+                weight = 1 / 10
+            value *= (1 / 5)
+        else:
+            value, free_positions = TablutBoard.potential_king_killers(
+                state.pawns)
+            if value == 1:
+                weight = 1 / 3
+            else:
+                weight = 1 / 8
+            value *= (1 / 3)
+
+        for free_position in free_positions:
+            for _, to in black_moves:
+                if free_position == to:
+                    value += weight
+        if value >= 1:
+            value = 0.99
+
     if player == TablutPlayerType.WHITE:
         value = -value
     return value
@@ -224,7 +292,7 @@ def piece_difference(state):
     '''
     player = gutils.other_player(state.to_move)
     diff = (
-        (1 / 2) * len(state.pawns[TablutPawnType.BLACK]) -
+        ((1 / 2) * len(state.pawns[TablutPawnType.BLACK])) -
         len(state.pawns[TablutPawnType.WHITE])
     )
     if player == TablutPlayerType.WHITE:

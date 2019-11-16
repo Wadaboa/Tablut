@@ -289,7 +289,7 @@ class TablutBoard():
 
     @classmethod
     def simulate_distance(cls, pawns, initial_coords, final_coords,
-                          n_moves=0, max_moves=3):
+                          n_moves=0, max_moves=3, unwanted_positions=[]):
         '''
         Compute a simulation of the minimum number of moves required
         to reach the given final coordinates, by ignoring oppenent moves
@@ -297,6 +297,8 @@ class TablutBoard():
         '''
         if n_moves == max_moves or initial_coords == final_coords:
             return n_moves
+        if initial_coords in unwanted_positions:
+            return max_moves + 1
         moves = cls.legal_moves(pawns, initial_coords)
         if len(moves) <= 0:
             return max_moves + 1
@@ -304,9 +306,16 @@ class TablutBoard():
         for move in moves:
             if (initial_coords.distance(final_coords) >
                     move.distance(final_coords)):
-                moves_counter.append(cls.simulate_distance(
-                    pawns, move, final_coords, n_moves + 1, max_moves
-                ))
+                moves_counter.append(
+                    cls.simulate_distance(
+                        pawns,
+                        move,
+                        final_coords,
+                        n_moves + 1,
+                        max_moves,
+                        unwanted_positions
+                    )
+                )
         min_moves = max_moves + 1
         if len(moves_counter) > 0:
             min_moves = min(moves_counter)
@@ -321,7 +330,7 @@ class TablutBoard():
         right_pawn = TablutBoardPosition(row=pawn.row, col=pawn.col + k)
         up_pawn = TablutBoardPosition(row=pawn.row - k, col=pawn.col)
         down_pawn = TablutBoardPosition(row=pawn.row + k, col=pawn.col)
-        return [left_pawn, right_pawn, up_pawn, down_pawn]
+        return [up_pawn, left_pawn, right_pawn, down_pawn]
 
     @classmethod
     def is_king_in_castle(cls, pawns):
@@ -335,15 +344,19 @@ class TablutBoard():
     def potential_king_killers(cls, pawns):
         '''
         Return the number of enemy pawns, camps and castle around the king
+        and the remaining positions to kill him
         '''
         king = cls.king_position(pawns)
         king_neighbors = cls.k_neighbors(king, k=1)
+        free_neighbors = []
         killers = 0
         for neighbor in king_neighbors:
             if (neighbor in cls.OUTER_CAMPS or neighbor == cls.CASTLE or
                     neighbor in pawns[TablutPawnType.BLACK]):
                 killers += 1
-        return killers
+            elif neighbor not in pawns[TablutPawnType.WHITE]:
+                free_neighbors.append(neighbor)
+        return killers, free_neighbors
 
     @classmethod
     def _remove_dead_pawns(cls, pawns, my_type, moved_pawn):

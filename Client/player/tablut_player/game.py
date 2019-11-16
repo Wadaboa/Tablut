@@ -96,7 +96,7 @@ class TablutGame(Game):
             to_move=to_move,
             utility=0,
             pawns=initial_pawns,
-            moves=self._moves(initial_pawns, to_move),
+            moves=self.player_moves(initial_pawns, to_move),
             old_state=None
         )
         self._init_zobrist()
@@ -223,7 +223,7 @@ class TablutGame(Game):
             old_state=state
         )
         if not self.terminal_test(res):
-            res.moves = self._moves(pawns, to_move)
+            res.moves = self.player_moves(pawns, to_move)
         return res
 
     def utility(self, state, player):
@@ -265,16 +265,18 @@ class TablutGame(Game):
         )
 
     @overload
-    def _moves(self, pawns):
+    @classmethod
+    def all_moves(cls, pawns):
         '''
         Return a list of tuples of coordinates representing every possibile
         new position for each pawn
         '''
         moves = set()
-        moves.update(self._moves(pawns, TablutPlayerType.WHITE))
-        moves.update(self._moves(pawns, TablutPlayerType.BLACK))
+        moves.update(cls.player_moves(pawns, TablutPlayerType.WHITE))
+        moves.update(cls.player_moves(pawns, TablutPlayerType.BLACK))
 
-    def _moves(self, pawns, player_type):
+    @classmethod
+    def player_moves(cls, pawns, player_type):
         '''
         Return a list of tuples of coordinates representing every possibile
         new position for each pawn of the given player
