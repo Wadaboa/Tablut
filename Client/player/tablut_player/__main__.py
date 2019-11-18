@@ -90,7 +90,6 @@ def entry():
 def autoplay(gui):
     game = TablutGame()
     game_state = game.initial
-    '''
     initial_pawns = {
         gutils.TablutPawnType.WHITE: {
             gutils.TablutBoardPosition(6, 4),
@@ -105,7 +104,7 @@ def autoplay(gui):
         gutils.TablutPawnType.BLACK: {
             gutils.TablutBoardPosition(4, 8),
             gutils.TablutBoardPosition(5, 6),
-            gutils.TablutBoardPosition(6, 2),
+            gutils.TablutBoardPosition(7, 2),
             gutils.TablutBoardPosition(0, 5),
             gutils.TablutBoardPosition(0, 3),
             gutils.TablutBoardPosition(0, 8),
@@ -129,21 +128,25 @@ def autoplay(gui):
         initial_pawns,
         moves=TablutGame.player_moves(initial_pawns, player)
     )
-    '''
     update_gui(gui, game_state.pawns)
+    heu.black_chain(game_state)
+    return
     while not game.terminal_test(game_state):
         game.inc_turn()
         white_move = get_move(
             game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD
         )
         game_state = game.result(game_state, white_move)
+        heu.black_chain(game_state)
         update_gui(gui, game_state.pawns)
         if game.terminal_test(game_state):
             break
         black_move = get_move(
-            game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD
+            game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
+            prev_move=white_move
         )
         game_state = game.result(game_state, black_move)
+        heu.black_chain(game_state)
         update_gui(gui, game_state.pawns)
         # game.display(game_state)
         time.sleep(3)
@@ -187,10 +190,6 @@ def play():
 
             game.display(game_state)
             print(f'My move: {my_move}')
-            print(
-                f'King Heu:{heu.king_moves_to_goals_count(game_state.pawns)}')
-            print(f'White Heu:{heu.white_heuristic(game.turn,game_state)}')
-            print(f'Black Heu:{heu.black_heuristic(game.turn,game_state)}')
 
             action_queue.put((my_move, game_state.to_move))
             get_state(state_queue, exception_queue)  # Get my move
@@ -206,10 +205,6 @@ def play():
 
             game.display(game_state)
             print(f'Enemy move: {enemy_move}')
-            print(
-                f'King Heu:{heu.king_moves_to_goals_count(game_state.pawns)}')
-            print(f'White Heu:{heu.white_heuristic(game.turn,game_state)}')
-            print(f'Black Heu:{heu.black_heuristic(game.turn,game_state)}')
 
     except Exception:
         print(traceback.format_exc())

@@ -9,6 +9,7 @@ import random
 
 import tablut_player.game_utils as gutils
 import tablut_player.heuristic as heu
+import tablut_player.config as conf
 from tablut_player.game_utils import (
     TablutBoardPosition,
     TablutPawnType,
@@ -135,13 +136,13 @@ class TablutGame(Game):
         '''
         pawn_types = TablutPawnType.values()
         player_types = TablutPlayerType.values()
-        dim = ((TablutBoard.SIZE ** 2) * len(pawn_types)) + len(player_types)
+        dim = ((conf.BOARD_SIZE ** 2) * len(pawn_types)) + len(player_types)
         keys = set()
         random.seed(dim)
         while len(keys) < dim:
             keys.add(random.getrandbits(64))
-        for i in range(TablutBoard.SIZE):
-            for j in range(TablutBoard.SIZE):
+        for i in range(conf.BOARD_SIZE):
+            for j in range(conf.BOARD_SIZE):
                 pos = TablutBoardPosition(row=i, col=j)
                 for pawn_type in TablutPawnType.values():
                     key = keys.pop()

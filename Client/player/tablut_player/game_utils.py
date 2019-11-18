@@ -147,10 +147,18 @@ class TablutPawnDirection(Enum):
     UP, DOWN, LEFT, RIGHT = range(4)
 
 
-class TablutBoardPosition:
+class TablutBoardPosition(object):
     '''
     Tablut board cell
     '''
+
+    def __new__(cls, row, col):
+        size = conf.BOARD_SIZE
+        instance = None
+        if row >= 0 and row < size and col >= 0 and col < size:
+            instance = super(TablutBoardPosition, cls).__new__(cls)
+            instance.__init__(row, col)
+        return instance
 
     def __init__(self, row, col):
         self.row = row
@@ -161,6 +169,38 @@ class TablutBoardPosition:
         Manhattan distance
         '''
         return abs(self.row - other.row) + abs(self.col - other.col)
+
+    def horizontal_mirroring(self):
+        '''
+        Return a board position mirrored on the horizontal axis
+        '''
+        return TablutBoardPosition(
+            row=conf.BOARD_SIZE - self.row - 1,
+            col=self.col
+        )
+
+    def vertical_mirroring(self):
+        '''
+        Return a board position mirrored on the vertical axis
+        '''
+        return TablutBoardPosition(
+            row=self.row,
+            col=conf.BOARD_SIZE - self.col - 1
+        )
+
+    def diagonal_mirroring(self, diag=1):
+        '''
+        Return a board position mirrored on the main diagonal,
+        or on the anti-diagonal
+        '''
+        size = conf.BOARD_SIZE - 1
+        return (
+            TablutBoardPosition(row=self.col, col=self.row) if diag == 1
+            else TablutBoardPosition(
+                row=size-self.col, col=size-self.row
+            ) if diag == -1
+            else None
+        )
 
     def __eq__(self, position):
         return (

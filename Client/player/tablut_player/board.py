@@ -3,6 +3,7 @@ Board game representations module
 '''
 
 import tablut_player.game_utils as gutils
+import tablut_player.config as conf
 from tablut_player.game_utils import (
     TablutBoardPosition,
     TablutPawnDirection,
@@ -19,7 +20,7 @@ class TablutBoard():
     '''
     Tablut board rules and interaction
     '''
-    SIZE = 9
+    conf.BOARD_SIZE = 9
     CASTLE = TablutBoardPosition(row=4, col=4)
     INNER_CAMPS = {
         TablutBoardPosition(row=4, col=0),
@@ -91,7 +92,7 @@ class TablutBoard():
         Computes every row and column pawn coordinates, from the given pawn
         '''
         positions = set()
-        for i in range(cls.SIZE):
+        for i in range(conf.BOARD_SIZE):
             positions.add(
                 TablutBoardPosition(row=i, col=pawn_coords.col)
             )
@@ -111,8 +112,8 @@ class TablutBoard():
         unallowed_positions.add(cls.CASTLE)
         bad_camps = set(cls.CAMPS)
         if pawn_coords in cls.CAMPS:
-            near_camps = set(cls.k_neighbors(pawn_coords, k=1))
-            near_camps.update(set(cls.k_neighbors(pawn_coords, k=2)))
+            near_camps = set(cls.orthogonal_k_neighbors(pawn_coords, k=1))
+            near_camps.update(set(cls.orthogonal_k_neighbors(pawn_coords, k=2)))
             bad_camps = cls.CAMPS.difference(near_camps)
         unallowed_positions.update(bad_camps)
         return unallowed_positions
@@ -172,7 +173,7 @@ class TablutBoard():
                     TablutBoardPosition(row=pawn_coords.row, col=j)
                 )
         elif pawn_direction == TablutPawnDirection.RIGHT:
-            for j in range(pawn_coords.col + 1, cls.SIZE):
+            for j in range(pawn_coords.col + 1, conf.BOARD_SIZE):
                 unreachables.add(
                     TablutBoardPosition(row=pawn_coords.row, col=j)
                 )
@@ -182,7 +183,7 @@ class TablutBoard():
                     TablutBoardPosition(row=i, col=pawn_coords.col)
                 )
         elif pawn_direction == TablutPawnDirection.DOWN:
-            for i in range(pawn_coords.row + 1, cls.SIZE):
+            for i in range(pawn_coords.row + 1, conf.BOARD_SIZE):
                 unreachables.add(
                     TablutBoardPosition(row=i, col=pawn_coords.col)
                 )
@@ -322,7 +323,7 @@ class TablutBoard():
         return min_moves
 
     @classmethod
-    def k_neighbors(cls, pawn, k=1):
+    def orthogonal_k_neighbors(cls, pawn, k=1):
         '''
         Return the k-level neighbors of the given pawn
         '''
@@ -333,12 +334,29 @@ class TablutBoard():
         return [up_pawn, left_pawn, right_pawn, down_pawn]
 
     @classmethod
+    def diagonal_k_neighbors(cls, pawn, k=1):
+        '''
+        Return the k-level diagonal neighbors of the given pawn
+        '''
+        l_up_pawn = TablutBoardPosition(row=pawn.row - k, col=pawn.col - k)
+        r_up_pawn = TablutBoardPosition(row=pawn.row - k, col=pawn.col + k)
+        r_down_pawn = TablutBoardPosition(row=pawn.row + k, col=pawn.col + k)
+        l_down_pawn = TablutBoardPosition(row=pawn.row + k, col=pawn.col - k)
+        return [l_up_pawn, r_up_pawn, r_down_pawn, l_down_pawn]
+
+    @classmethod
+    def full_k_neighbors(cls, pawn, k=1):
+        neighbors = cls.orthogonal_k_neighbors(pawn, k)
+        neighbors.extend(cls.diagonal_k_neighbors(pawn, k))
+        return neighbors
+
+    @classmethod
     def is_king_in_castle(cls, pawns):
         return cls.king_position(pawns) == cls.CASTLE
 
     @classmethod
     def is_king_near_castle(cls, pawns):
-        return cls.king_position(pawns) in cls.k_neighbors(cls.CASTLE, k=1)
+        return cls.king_position(pawns) in cls.orthogonal_k_neighbors(cls.CASTLE, k=1)
 
     @classmethod
     def potential_king_killers(cls, pawns):
@@ -347,7 +365,7 @@ class TablutBoard():
         and the remaining positions to kill him
         '''
         king = cls.king_position(pawns)
-        king_neighbors = cls.k_neighbors(king, k=1)
+        king_neighbors = cls.orthogonal_k_neighbors(king, k=1)
         free_neighbors = []
         killers = 0
         for neighbor in king_neighbors:
@@ -368,8 +386,8 @@ class TablutBoard():
             '''
             Compute captured pawns
             '''
-            one_neighbors = cls.k_neighbors(pawn, k=1)
-            two_neighbors = cls.k_neighbors(pawn, k=2)
+            one_neighbors = cls.orthogonal_k_neighbors(pawn, k=1)
+            two_neighbors = cls.orthogonal_k_neighbors(pawn, k=2)
             dead = set()
             pawns = set()
             pawns.update(my_pawns, cls.OUTER_CAMPS, {cls.CASTLE})
@@ -383,7 +401,7 @@ class TablutBoard():
             Check if the king is dead or alive, after the given move
             '''
             king = cls.king_position(pawns)
-            king_neighbors = cls.k_neighbors(king, k=1)
+            king_neighbors = cls.orthogonal_k_neighbors(king, k=1)
             if cls.CASTLE in king_neighbors or king == cls.CASTLE:
                 enemy_pawns.remove(king)
                 if cls.CASTLE in king_neighbors:
@@ -434,8 +452,8 @@ class TablutBoardGUI(QtWidgets.QGraphicsScene):
         '''
         offset_factor = 1.5
         offset = int(self.CELL_SIZE / offset_factor)
-        width = TablutBoard.SIZE * self.CELL_SIZE
-        height = TablutBoard.SIZE * self.CELL_SIZE
+        width = conf.BOARD_SIZE * self.CELL_SIZE
+        height = conf.BOARD_SIZE * self.CELL_SIZE
         self.setSceneRect(
             -offset, -offset,
             width + self.CELL_SIZE, height + self.CELL_SIZE
@@ -443,7 +461,7 @@ class TablutBoardGUI(QtWidgets.QGraphicsScene):
         self.setItemIndexMethod(QtWidgets.QGraphicsScene.NoIndex)
         pen = QPen(Qt.black, 2, Qt.SolidLine)
 
-        for index in range(0, TablutBoard.SIZE + 1):
+        for index in range(0, conf.BOARD_SIZE + 1):
             coord = index * self.CELL_SIZE
             self.lines.append(self.add_line(coord, 0, coord, height, pen))
             self.lines.append(self.add_line(0, coord, width, coord, pen))

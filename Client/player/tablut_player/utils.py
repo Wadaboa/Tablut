@@ -4,6 +4,8 @@ Utility functions
 
 
 import copy as cp
+import time
+import random
 
 
 INF = float('inf')
@@ -39,3 +41,10 @@ def get_from_set(seq):
 
 def copy(obj):
     return cp.deepcopy(obj)
+
+
+def get_rand(seq):
+    if not isinstance(seq, list):
+        seq = list(seq)
+    random.seed(time.time())
+    return random.choice(seq)

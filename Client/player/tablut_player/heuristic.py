@@ -5,6 +5,7 @@ Tablut states evaluation functions
 
 import random
 
+import tablut_player.utils as utils
 import tablut_player.game_utils as gutils
 from tablut_player.game_utils import (
     TablutBoardPosition,
@@ -90,9 +91,9 @@ def heuristic(turn, state):
         weigths = [1, 3, 0.6, 6, 6]
     good_weights = 0
     score = 0
-    print([value*100 for value in values])
-    print(weigths)
-    print()
+    #print([value*100 for value in values])
+    # print(weigths)
+    # print()
     for value, weigth in zip(values, weigths):
         if value == -1 or value == 1:
             return value*1000
@@ -109,8 +110,8 @@ def potential_kills(state):
     def count_dead(moves, potential_killers, potential_victims):
         count = 0
         for _, to in moves:
-            killables = TablutBoard.k_neighbors(to, k=1)
-            killers = TablutBoard.k_neighbors(to, k=2)
+            killables = TablutBoard.orthogonal_k_neighbors(to, k=1)
+            killers = TablutBoard.orthogonal_k_neighbors(to, k=2)
             for victim, killer in zip(killables, killers):
                 if victim in potential_victims and killer in potential_killers:
                     count += 1
@@ -174,7 +175,7 @@ def king_moves_to_goals(state):
         if len(distances) > 0 and not check:
             value = 0
             distances.sort()
-            print(distances)
+            # print(distances)
             for ind, distance in enumerate(distances):
                 tmp = (2 ** (-ind - 1)) / distance
                 if value + tmp > upper_bound:
@@ -183,6 +184,51 @@ def king_moves_to_goals(state):
     if player == TablutPlayerType.BLACK:
         value = -value
     return value
+
+
+def black_chain(state):
+    '''
+    '''
+    black_pawns = set(state.pawns[TablutPawnType.BLACK])
+    player = gutils.other_player(state.to_move)
+    chains = []
+    while len(black_pawns) > 0:
+        camps_found = 0
+        available_camps = set(TablutBoard.CAMPS)
+        pawn = black_pawns.pop()
+        chain, camps_found, _ = find_chain(
+            pawn, black_pawns, available_camps
+        )
+        if camps_found == 2:
+            chains.append(chain)
+    print(chains)
+
+
+def find_chain(pawn, black_pawns, available_camps, camps_found=0, chain=set()):
+    '''
+    '''
+    neighbors = set(TablutBoard.full_k_neighbors(pawn, k=1))
+    if not available_camps.isdisjoint(neighbors):
+        chain.add(pawn)
+        camps = available_camps.intersection(neighbors)
+        camp = utils.get_from_set(camps)
+        camps.update(
+            TablutBoard.full_k_neighbors(camp, k=1),
+            TablutBoard.full_k_neighbors(camp, k=2)
+        )
+        available_camps.difference_update(camps)
+        camps_found += 1
+    good_neighbors = black_pawns.intersection(neighbors)
+    new_camps_found = camps_found
+    for neighbor in good_neighbors:
+        if neighbor in black_pawns:
+            black_pawns.remove(neighbor)
+        chain, new_camps_found, _ = find_chain(
+            neighbor, black_pawns, available_camps, new_camps_found, chain
+        )
+        if new_camps_found > camps_found:
+            chain.add(pawn)
+    return chain, new_camps_found, black_pawns
 
 
 def blocked_goals(state):

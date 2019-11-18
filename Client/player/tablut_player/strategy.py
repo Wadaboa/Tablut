@@ -12,6 +12,37 @@ import tablut_player.game_utils as gutils
 import tablut_player.utils as utils
 import tablut_player.heuristic as heu
 from tablut_player.utils import INF
+from tablut_player.game_utils import TablutBoardPosition as TBPos
+
+
+WHITE_OPENINGS = [
+    (TBPos(row=4, col=2), TBPos(row=7, col=2)),
+    (TBPos(row=4, col=2), TBPos(row=8, col=2))
+]
+BLACK_OPENINGS = {
+    (TBPos(row=4, col=2), TBPos(row=5, col=2)): [
+        (TBPos(row=5, col=8), TBPos(row=5, col=7))
+    ],
+    (TBPos(row=4, col=2), TBPos(row=6, col=2)): [
+        (TBPos(row=3, col=0), TBPos(row=3, col=2))
+    ],
+    (TBPos(row=4, col=2), TBPos(row=7, col=2)): [
+        (TBPos(row=3, col=0), TBPos(row=3, col=2))
+    ],
+    (TBPos(row=4, col=2), TBPos(row=8, col=2)): [
+        (TBPos(row=4, col=1), TBPos(row=8, col=1)),
+        (TBPos(row=3, col=0), TBPos(row=3, col=2))
+    ],
+    (TBPos(row=4, col=3), TBPos(row=5, col=3)): [
+        (TBPos(row=0, col=3), TBPos(row=4, col=3))
+    ],
+    (TBPos(row=4, col=3), TBPos(row=6, col=3)): [
+        (TBPos(row=0, col=3), TBPos(row=4, col=3))
+    ],
+    (TBPos(row=4, col=3), TBPos(row=7, col=3)): [
+        (TBPos(row=0, col=3), TBPos(row=4, col=3))
+    ]
+}
 
 
 class TranspositionTableEntryType(Enum):
@@ -315,7 +346,7 @@ def ucb(node, const=math.sqrt(2)):
 # ______________________________________________________________________________
 
 
-def get_move(game, state, timeout, max_depth=4):
+def get_move(game, state, timeout, max_depth=4, prev_move=None):
     #move = None
     # move = alphabeta_player(game, state, timeout, max_depth)
     # move = monte_carlo_player(game, state, timeout)
@@ -324,8 +355,8 @@ def get_move(game, state, timeout, max_depth=4):
     # )
     # value, move = failsoft_negamax_alphabeta(game, state, 2, -INF, INF)
     # value, move = negascout_alphabeta(game, state, 1, -INF, INF)
-    if game.turn < 3:
-        move = random_player(state)
+    if game.turn < 2:
+        move = first_move(state, prev_move)
     else:
         move = alphabeta_cutoff_search(state, game, d=0, timeout=60)
     # print(value)
@@ -334,6 +365,75 @@ def get_move(game, state, timeout, max_depth=4):
         print('Alphabeta failure')
         move = random_player(state)
     return move
+
+
+def first_move(state, prev_move=None):
+    '''
+    First opening move
+    '''
+    if state.to_move == gutils.TablutPlayerType.WHITE:
+        moves = WHITE_OPENINGS
+        for i in range(len(moves)):
+            from_move, to_move = moves[i]
+            moves.append((from_move, to_move.horizontal_mirroring()))
+        for i in range(len(moves)):
+            from_move, to_move = moves[i]
+            moves.append((
+                from_move.vertical_mirroring(), to_move.vertical_mirroring()
+            ))
+            moves.append((
+                from_move.diagonal_mirroring(diag=1),
+                to_move.diagonal_mirroring(diag=1)
+            ))
+            moves.append((
+                from_move.diagonal_mirroring(diag=-1),
+                to_move.diagonal_mirroring(diag=-1)
+            ))
+        return utils.get_rand(moves)
+
+    elif prev_move is not None:
+        initial_white_keys = list(BLACK_OPENINGS.keys())
+        white_keys = list(initial_white_keys)
+        for white_key in initial_white_keys:
+            from_white, to_white = white_key
+            white_keys.append(white_key)
+            for black_move in BLACK_OPENINGS[white_key]:
+                from_black, to_black = black_move
+                key = (from_white, to_white.horizontal_mirroring())
+                white_keys.append(key)
+                BLACK_OPENINGS.setdefault(key, []).append((
+                    from_black.horizontal_mirroring(),
+                    to_black.horizontal_mirroring()
+                ))
+        for white_key in white_keys:
+            from_white, to_white = white_key
+            for black_move in BLACK_OPENINGS[white_key]:
+                from_black, to_black = black_move
+                key = (
+                    from_white.vertical_mirroring(),
+                    to_white.vertical_mirroring()
+                )
+                BLACK_OPENINGS.setdefault(key, []).append((
+                    from_black.vertical_mirroring(),
+                    to_black.vertical_mirroring()
+                ))
+                key = (
+                    from_white.diagonal_mirroring(diag=1),
+                    to_white.diagonal_mirroring(diag=1)
+                )
+                BLACK_OPENINGS.setdefault(key, []).append((
+                    from_black.diagonal_mirroring(diag=1),
+                    to_black.diagonal_mirroring(diag=1)
+                ))
+                key = (
+                    from_white.diagonal_mirroring(diag=-1),
+                    to_white.diagonal_mirroring(diag=-1)
+                )
+                BLACK_OPENINGS.setdefault(key, []).append((
+                    from_black.diagonal_mirroring(diag=-1),
+                    to_black.diagonal_mirroring(diag=-1)
+                ))
+        return utils.get_rand(BLACK_OPENINGS[prev_move])
 
 
 def random_player(state):
@@ -655,12 +755,12 @@ def alphabeta_cutoff_search(state, game, d=4, timeout=60):
     random.seed(time.time())
     random.shuffle(moves)
     for move in moves:
-        print(move)
+        # print(move)
         v = min_value(game.result(state, move), best_score, beta, d)
         if v > best_score:
             best_score = v
             best_action = move
     final_time = time.time()-start_time
-    print(
-        f'Tempo di ricerca:{final_time} -heuristica migliore:{best_score} - mossa migliore:{best_action}')
+    # print(
+    #    f'Tempo di ricerca:{final_time} -heuristica migliore:{best_score} - mossa migliore:{best_action}')
     return best_action
