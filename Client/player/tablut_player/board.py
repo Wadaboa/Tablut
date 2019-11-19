@@ -20,7 +20,7 @@ class TablutBoard():
     '''
     Tablut board rules and interaction
     '''
-    conf.BOARD_SIZE = 9
+
     CASTLE = TablutBoardPosition(row=4, col=4)
     INNER_CAMPS = {
         TablutBoardPosition(row=4, col=0),
@@ -141,22 +141,25 @@ class TablutBoard():
         return None
 
     @classmethod
-    def from_direction_to_pawn(cls, initial_pawn_coords, pawn_direction):
+    def from_direction_to_pawn(cls, initial_pawn_coords, pawn_direction, k=1):
+        '''
+        Return the k-distant cell from the given pawn, in the given direction
+        '''
         if pawn_direction == TablutPawnDirection.UP:
             return TablutBoardPosition(
-                row=initial_pawn_coords.row - 1, col=initial_pawn_coords.col
+                row=initial_pawn_coords.row - k, col=initial_pawn_coords.col
             )
         elif pawn_direction == TablutPawnDirection.DOWN:
             return TablutBoardPosition(
-                row=initial_pawn_coords.row + 1, col=initial_pawn_coords.col
+                row=initial_pawn_coords.row + k, col=initial_pawn_coords.col
             )
         elif pawn_direction == TablutPawnDirection.LEFT:
             return TablutBoardPosition(
-                row=initial_pawn_coords.row, col=initial_pawn_coords.col - 1
+                row=initial_pawn_coords.row, col=initial_pawn_coords.col - k
             )
         elif pawn_direction == TablutPawnDirection.RIGHT:
             return TablutBoardPosition(
-                row=initial_pawn_coords.row, col=initial_pawn_coords.col + 1
+                row=initial_pawn_coords.row, col=initial_pawn_coords.col + k
             )
         return None
 
@@ -346,17 +349,39 @@ class TablutBoard():
 
     @classmethod
     def full_k_neighbors(cls, pawn, k=1):
+        '''
+        Return the k-level orthogonal and diagonal neighbors of the given pawn
+        '''
         neighbors = cls.orthogonal_k_neighbors(pawn, k)
         neighbors.extend(cls.diagonal_k_neighbors(pawn, k))
         return neighbors
 
     @classmethod
+    def unique_full_k_neighbors(cls, pawn, k=1):
+        '''
+        Return the valid k-level orthogonal and diagonal neighbors
+        of the given pawn
+        '''
+        return {
+            pos for pos in cls.full_k_neighbors(pawn, k) if pos is not None
+        }
+
+    @classmethod
     def is_king_in_castle(cls, pawns):
+        '''
+        Return True if the king is in the castle, False otherwise
+        '''
         return cls.king_position(pawns) == cls.CASTLE
 
     @classmethod
     def is_king_near_castle(cls, pawns):
-        return cls.king_position(pawns) in cls.orthogonal_k_neighbors(cls.CASTLE, k=1)
+        '''
+        Return True if the king is one cell away from the castle,
+        False otherwise
+        '''
+        return cls.king_position(pawns) in (
+            cls.orthogonal_k_neighbors(cls.CASTLE, k=1)
+        )
 
     @classmethod
     def potential_king_killers(cls, pawns):
