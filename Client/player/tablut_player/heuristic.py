@@ -203,6 +203,7 @@ def black_blocking_chains(state):
     that are blocking goal positions, in range [-1, 1]
     '''
     chains = black_chains(state)
+    value = -(1 / 10) * len(chains)
     blocked_whites = 0
     blocked_blacks = 0
     for chain in chains:
@@ -210,7 +211,7 @@ def black_blocking_chains(state):
         blocked_whites += whites_found
         blocked_blacks += blacks_found
     player = gutils.other_player(state.to_move)
-    value = (1 / 16) * blocked_blacks - (1 / 9) * blocked_whites
+    value += (1 / 17) * blocked_blacks + (1 / 10) * blocked_whites
     if player == TPlayerType.BLACK:
         value = -value
     return value

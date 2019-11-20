@@ -358,7 +358,7 @@ def get_move(game, state, timeout, max_depth=4, prev_move=None):
     if game.turn < 2:
         move = first_move(state, prev_move)
     else:
-        move = alphabeta_cutoff_search(state, game, d=0, timeout=60)
+        move = alphabeta_cutoff_search(state, game, d=1, timeout=60)
     # print(value)
     print(move)
     if move is None:
@@ -761,6 +761,6 @@ def alphabeta_cutoff_search(state, game, d=4, timeout=60):
             best_score = v
             best_action = move
     final_time = time.time()-start_time
-    # print(
-    #    f'Tempo di ricerca:{final_time} -heuristica migliore:{best_score} - mossa migliore:{best_action}')
+    print(
+        f'Tempo di ricerca:{final_time} -heuristica migliore:{best_score} - mossa migliore:{best_action}')
     return best_action
