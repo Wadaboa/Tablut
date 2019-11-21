@@ -353,14 +353,16 @@ def get_move(game, state, timeout, max_depth=4, prev_move=None):
     # value, move = iterative_deepening_negamax(
     #    game, state, depth=3, alpha=-INF, beta=INF
     # )
-    # value, move = failsoft_negamax_alphabeta(game, state, 2, -INF, INF)
+
     # value, move = negascout_alphabeta(game, state, 1, -INF, INF)
     if game.turn < 2:
         move = first_move(state, prev_move)
     else:
-        move = alphabeta_cutoff_search(state, game, d=1, timeout=60)
+        move = alphabeta_cutoff_search(state, game, d=0, timeout=60)
+        print(move)
+
     # print(value)
-    print(move)
+
     if move is None:
         print('Alphabeta failure')
         move = random_player(state)
@@ -668,99 +670,144 @@ class TTEntryType(Enum):
 
 class TTEntry:
 
-    def __init__(self, key, entry_type, value, depth, best_move):
+    def __init__(self, key, moves, value, depth, entry_type=None):
         self.key = key
-        self.entry_type = entry_type
+        self.moves = moves
         self.value = value
         self.depth = depth
-        self.best_move = best_move
+        self.entry_type = entry_type
 
     def __repr__(self):
         return (
             f'Key: {self.key}\n'
+            f'Moves: {self.moves}'
             f'Type: {self.entry_type}\n'
             f'Value: {self.value}\n'
             f'Depth: {self.depth}\n'
-            f'Best move: {self.best_move}'
         )
 
 
 class TT:
-
-    TABLE_SIZE = 4000
 
     def __init__(self):
         self.table = {}
 
     def get_entry(self, state):
         hash_value = hash(state)
-        entry = self.table.get(hash_value % self.TABLE_SIZE)
+        entry = self.table.get(hash_value)
         if entry is not None and entry.key == hash_value:
             return entry
         return None
+
+    def get_moves(self, state):
+        entry = self.get_entry(state)
+        return entry.moves if entry is not None else None
 
     def get_value(self, state):
         entry = self.get_entry(state)
         return entry.value if entry is not None else None
 
     def store_entry(self, entry):
-        self.table[entry.key % self.TABLE_SIZE] = entry
+        self.table[entry.key] = entry
 
     def clear(self):
         self.table = {}
 
 
-def alphabeta_cutoff_search(state, game, d=4, timeout=60):
+TTABLE = TT()
+
+
+def alphabeta_cutoff_search(state, game, d=2, timeout=60):
     """Search game to determine best action; use alpha-beta pruning.
     This version cuts off search and uses an evaluation function."""
 
-    player = game.to_move(state)
-
     # Functions used by alphabeta
     def max_value(state, alpha, beta, depth):
+        entry = TTABLE.get_entry(state)
+        if entry is not None and entry.moves is not None:
+            state.moves = entry.moves
+        else:
+            state.moves = game.player_moves(state.pawns, state.to_move)
+
+        moves = state.moves
+
         if alphabeta_cutoff(game, state, depth, start_time, timeout):
-            return heu.heuristic(game.turn, state)
+            if entry is not None and entry.depth == depth:
+                value = entry.value
+            else:
+                value = heu.heuristic(game.turn, state)
+                entry = TTEntry(hash(state), moves, value, depth)
+                TTABLE.store_entry(entry)
+            return value
         v = -INF
-        moves = list(game.moves(state))
-        random.seed(time.time())
-        random.shuffle(moves)
         for move in moves:
-            v = max(v, min_value(game.result(state, move),
-                                 alpha, beta, depth - 1))
+            value = min_value(game.result(state, move, compute_moves=False),
+                              alpha, beta, depth - 1)
+            if value > v:
+                v = value
+                moves.remove(move)
+                moves.insert(0, move)
             if v >= beta:
+                entry = TTEntry(hash(state), moves, v, depth)
+                TTABLE.store_entry(entry)
                 return v
             alpha = max(alpha, v)
+        entry = TTEntry(hash(state), moves, v, depth)
+        TTABLE.store_entry(entry)
         return v
 
     def min_value(state, alpha, beta, depth):
+        entry = TTABLE.get_entry(state)
+        if entry is not None and entry.moves is not None:
+            state.moves = entry.moves
+        else:
+            state.moves = game.player_moves(state.pawns, state.to_move)
+
+        moves = state.moves
+
         if alphabeta_cutoff(game, state, depth, start_time, timeout):
-            return heu.heuristic(game.turn, state)
+            if entry is not None and entry.depth == depth:
+                value = entry.value
+            else:
+                value = heu.heuristic(game.turn, state)
+                entry = TTEntry(hash(state), moves, value, depth)
+                TTABLE.store_entry(entry)
+            return value
         v = INF
-        moves = list(game.moves(state))
-        random.seed(time.time())
-        random.shuffle(moves)
         for move in moves:
-            v = min(v, max_value(game.result(state, move),
-                                 alpha, beta, depth - 1))
+            value = max_value(game.result(state, move, compute_moves=False),
+                              alpha, beta, depth - 1)
+            if value < v:
+                v = value
+                moves.remove(move)
+                moves.insert(0, move)
             if v <= alpha:
+                entry = TTEntry(hash(state), moves, v, depth)
+                TTABLE.store_entry(entry)
                 return v
             beta = min(beta, v)
+        entry = TTEntry(hash(state), moves, v, depth)
+        TTABLE.store_entry(entry)
         return v
 
     start_time = time.time()
     best_score = -INF
     beta = INF
-    best_action = None
-    moves = list(game.moves(state))
-    random.seed(time.time())
-    random.shuffle(moves)
-    for move in moves:
-        # print(move)
-        v = min_value(game.result(state, move), best_score, beta, d)
-        if v > best_score:
-            best_score = v
-            best_action = move
-    final_time = time.time()-start_time
+    best_move = None
+    moves = state.moves
+    for current_depth in range(0, d + 1, 2):
+        for move in moves:
+            v = min_value(game.result(state, move, compute_moves=False),
+                          best_score, beta, current_depth)
+            if v > best_score:
+                best_score = v
+                best_move = move
+                moves.remove(best_move)
+                moves.insert(0, best_move)
+                print(f'The best move is {best_move}')
+        print(f'END DEPTH {current_depth}')
+
+    final_time = time.time() - start_time
     print(
-        f'Tempo di ricerca:{final_time} -heuristica migliore:{best_score} - mossa migliore:{best_action}')
-    return best_action
+        f'Tempo di ricerca:{final_time} -heuristica migliore:{best_score} - mossa migliore:{best_move}')
+    return best_move

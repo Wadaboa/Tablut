@@ -152,7 +152,8 @@ class TablutGame(Game):
         for player_type in player_types:
             TablutGameState.ZOBRIST_KEYS.to_move[player_type] = keys.pop()
 
-    def _draw(self, state):
+    @classmethod
+    def _draw(cls, state):
         '''
         Check if there is a draw, based on the number of repeated states
         '''
@@ -163,7 +164,7 @@ class TablutGame(Game):
         if second is None:
             return False
         old = second
-        for i in range(2, self.MAX_REPEATED_STATES):
+        for i in range(2, cls.MAX_REPEATED_STATES):
             old = old.old_state
             if old is None or (old is not None and
                                ((i % 2 == 0 and old != first) or
@@ -186,44 +187,17 @@ class TablutGame(Game):
             for move in self.moves(state)
         ]
 
-    def actions(self, state):
-        actions = []
-        for move in self.moves(state):
-            new_state = self.result(state, move)
-            actions.append(
-                gutils.TablutAction(
-                    move=move,
-                    state=new_state,
-                )
-            )
-        return actions
-
-    def ordered_valued_actions(self, state):
-        valued_actions = []
-        for action in self.actions(state):
-            valued_actions.append(
-                gutils.TablutValuedAction.from_action(
-                    action=action,
-                    value=heu.heuristic(
-                        self.turn,
-                        action.state
-                    )
-                )
-            )
-        valued_actions.sort(reverse=True, key=lambda action: action.value)
-        return valued_actions
-
-    def result(self, state, move):
+    def result(self, state, move, compute_moves=True):
         pawns = TablutBoard.move(state.pawns, state.to_move, move)
         to_move = gutils.other_player(state.to_move)
         res = TablutGameState(
             to_move=to_move,
             utility=self._compute_utility(pawns, state.to_move),
             pawns=pawns,
-            moves=set(),
+            moves=[],
             old_state=state
         )
-        if not self.terminal_test(res):
+        if not self.terminal_test(res) and compute_moves:
             res.moves = self.player_moves(pawns, to_move)
         return res
 
@@ -250,11 +224,12 @@ class TablutGame(Game):
             else -1
         )
 
-    def terminal_test(self, state):
+    @classmethod
+    def terminal_test(cls, state):
         '''
         A state is terminal if one player wins
         '''
-        return state.utility != 0 or self._draw(state)
+        return state.utility != 0 or cls._draw(state)
 
     def _goal_state(self, pawns):
         '''
@@ -272,9 +247,9 @@ class TablutGame(Game):
         Return a list of tuples of coordinates representing every possibile
         new position for each pawn
         '''
-        moves = set()
-        moves.update(cls.player_moves(pawns, TablutPlayerType.WHITE))
-        moves.update(cls.player_moves(pawns, TablutPlayerType.BLACK))
+        moves = []
+        moves.extend(cls.player_moves(pawns, TablutPlayerType.WHITE))
+        moves.extend(cls.player_moves(pawns, TablutPlayerType.BLACK))
 
     @classmethod
     def player_moves(cls, pawns, player_type):
@@ -282,9 +257,9 @@ class TablutGame(Game):
         Return a list of tuples of coordinates representing every possibile
         new position for each pawn of the given player
         '''
-        moves = set()
+        moves = []
         pawn_types = gutils.from_player_to_pawn_types(player_type)
         for pawn_type in pawn_types:
             for pawn in pawns[pawn_type]:
-                moves.update(TablutBoard.moves(pawns, pawn))
+                moves.extend(TablutBoard.moves(pawns, pawn))
         return moves

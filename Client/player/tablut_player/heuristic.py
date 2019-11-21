@@ -17,60 +17,6 @@ from tablut_player.game_utils import (
 )
 
 
-CORNERS = {
-    (TPawnDir.UP, TPawnDir.LEFT),
-    (TPawnDir.UP, TPawnDir.RIGHT),
-    (TPawnDir.DOWN, TPawnDir.LEFT),
-    (TPawnDir.DOWN, TPawnDir.RIGHT)
-}
-GOALS = {
-    (TPawnDir.UP, TPawnDir.LEFT): [
-        TBPos(row=2, col=0), TBPos(row=0, col=2),
-        TBPos(row=1, col=0), TBPos(row=0, col=1)
-    ],
-    (TPawnDir.UP, TPawnDir.RIGHT): [
-        TBPos(row=0, col=6), TBPos(row=0, col=7),
-        TBPos(row=1, col=8), TBPos(row=2, col=8)
-    ],
-    (TPawnDir.DOWN, TPawnDir.LEFT): [
-        TBPos(row=6, col=0), TBPos(row=7, col=0),
-        TBPos(row=8, col=1), TBPos(row=8, col=2)
-    ],
-    (TPawnDir.DOWN, TPawnDir.RIGHT): [
-        TBPos(row=8, col=6), TBPos(row=8, col=7),
-        TBPos(row=6, col=8), TBPos(row=7, col=8)
-    ]
-}
-BEST_BLOCKING_POSITIONS = {
-    (TPawnDir.UP, TPawnDir.LEFT): [
-        TBPos(row=2, col=1), TBPos(row=1, col=2),
-    ],
-    (TPawnDir.UP, TPawnDir.RIGHT): [
-        TBPos(row=1, col=6), TBPos(row=2, col=7)
-    ],
-    (TPawnDir.DOWN, TPawnDir.LEFT): [
-        TBPos(row=6, col=1), TBPos(row=7, col=2)
-    ],
-    (TPawnDir.DOWN, TPawnDir.RIGHT): [
-        TBPos(row=6, col=7), TBPos(row=7, col=6)
-    ]
-}
-OUTER_CORNERS = {
-    (TPawnDir.UP, TPawnDir.LEFT): [
-        TBPos(row=1, col=1)
-    ],
-    (TPawnDir.UP, TPawnDir.RIGHT): [
-        TBPos(row=1, col=7)
-    ],
-    (TPawnDir.DOWN, TPawnDir.LEFT): [
-        TBPos(row=7, col=1)
-    ],
-    (TPawnDir.DOWN, TPawnDir.RIGHT): [
-        TBPos(row=7, col=7)
-    ]
-}
-
-
 def heuristic(turn, state):
     '''
     Game state evaluation function, in range [-100, 100].
@@ -85,16 +31,13 @@ def heuristic(turn, state):
         black_blocking_chains(state)
     ]
     if turn < 10:
-        weigths = [3, 1, 0.25, 2, 2, 4]
+        weigths = [2, 2, 0.5, 1, 2, 5]
     elif turn < 20:
-        weigths = [2, 2, 0.3, 3, 3, 3]
+        weigths = [2, 4, 0.3, 5, 6, 2]
     else:
-        weigths = [1, 3, 0.6, 6, 6, 2]
+        weigths = [1.5, 5, 0.6, 6, 8, 2]
     good_weights = 0
     score = 0
-    print([value*100 for value in values])
-    print(weigths)
-    print()
     for value, weigth in zip(values, weigths):
         if value == -1 or value == 1:
             return value*1000
@@ -184,6 +127,9 @@ def king_moves_to_goals(state):
                 break
             if distance < max_moves:
                 distances.append(distance)
+        if distances.count(1) > 1:
+            value = 0.99
+            check = True
         if len(distances) > 0 and not check:
             value = 0
             distances.sort()
@@ -202,16 +148,25 @@ def black_blocking_chains(state):
     Return a value representing the number of chained black pawns,
     that are blocking goal positions, in range [-1, 1]
     '''
+    player = gutils.other_player(state.to_move)
     chains = black_chains(state)
-    value = -(1 / 10) * len(chains)
+    value = 0
     blocked_whites = 0
     blocked_blacks = 0
+    blocked_corners = 0
     for chain in chains:
-        whites_found, blacks_found = blocked_chain_pawns(state, chain)
+        whites_found, blacks_found, corners_found = blocked_chain_pawns(
+            state, chain)
+        if corners_found == 0:
+            value = 0.3-(1 / 12)*(blacks_found)
+            if player == TPlayerType.BLACK:
+                value = -value
+            return value
+        blocked_corners += corners_found
         blocked_whites += whites_found
         blocked_blacks += blacks_found
-    player = gutils.other_player(state.to_move)
-    value += (1 / 17) * blocked_blacks + (1 / 10) * blocked_whites
+
+    value = -(blocked_corners * (4 / 17)) + (blocked_whites * (1 / 9))
     if player == TPlayerType.BLACK:
         value = -value
     return value
@@ -224,34 +179,70 @@ def blocked_chain_pawns(state, chain):
     '''
     white_pawns = TablutBoard.player_pawns(state.pawns, TPlayerType.WHITE)
     black_pawns = TablutBoard.player_pawns(state.pawns, TPlayerType.BLACK)
+    near_corners = find_near_corners(chain)
+    whites_found = 0
+    blacks_found = 0
+    king_found = False
+    for corner in near_corners:
+        corner_whites = 0
+        corner_blacks = 0
+        neighbor = corner
+        neighbors = TablutBoard.unique_orthogonal_k_neighbors(neighbor, k=1)
+        visited_neighbors = set()
+        while len(neighbors) > 0:
+            visited_neighbors.add(neighbor)
+            if neighbor not in chain:
+                if neighbor in white_pawns:
+                    if neighbor == TablutBoard.king_position(state.pawns):
+                        king_found = True
+                    corner_whites += 1
+                elif neighbor in black_pawns:
+                    corner_blacks += 1
+                current_neighbors = TablutBoard.unique_orthogonal_k_neighbors(
+                    neighbor, k=1
+                )
+                neighbors.update(
+                    current_neighbors.difference(
+                        visited_neighbors, TablutBoard.CAMPS
+                    )
+                )
+            neighbor = neighbors.pop()
+        if king_found:
+            return corner_whites, corner_blacks, 0
+        whites_found += corner_whites
+        blacks_found += corner_blacks
+
+    if len(near_corners) > 1:
+        camps = set()
+        for a_corner in near_corners:
+            for b_corner in near_corners:
+                if a_corner != b_corner:
+                    camp = a_corner.middle_position(b_corner)
+                    if camp is not None:
+                        camps.add(camp)
+                        camps.update(
+                            TablutBoard.unique_orthogonal_k_neighbors(
+                                camp, k=1
+                            )
+                        )
+        for camp in camps:
+            if camp in black_pawns:
+                blacks_found += 1
+
+    return whites_found, blacks_found, len(near_corners)
+
+
+def find_near_corners(chain):
     extreme_indexes = [0, conf.BOARD_SIZE - 1]
     extreme_corners = [
         TBPos(i, j) for i in extreme_indexes for j in extreme_indexes
     ]
-    whites_found = [0] * len(extreme_corners)
-    blacks_found = [0] * len(extreme_corners)
-    for i, corner in enumerate(extreme_corners):
-        chain_count = 0
-        neighbor = corner
-        neighbors = set()
-        visited_chain = set()
-        visited_neighbors = set()
-        while chain_count != len(chain):
-            visited_neighbors.add(neighbor)
-            if neighbor in chain and neighbor not in visited_chain:
-                visited_chain.add(neighbor)
-                chain_count += 1
-            elif neighbor in white_pawns:
-                whites_found[i] += 1
-            elif neighbor in black_pawns:
-                blacks_found[i] += 1
-            neighbors.update(
-                TablutBoard.unique_full_k_neighbors(neighbor, k=1).difference(
-                    visited_neighbors
-                )
-            )
-            neighbor = neighbors.pop()
-    return min(whites_found), min(blacks_found)
+    near_corners = set()
+    for pawn in chain:
+        for corner in extreme_corners:
+            if corner.distance(pawn) < 6:
+                near_corners.add(corner)
+    return near_corners
 
 
 def black_chains(state):
@@ -260,6 +251,7 @@ def black_chains(state):
     '''
     chains = []
     black_pawns = set(state.pawns[TPawnType.BLACK])
+    black_pawns.difference_update(TablutBoard.CAMPS)
     while len(black_pawns) > 0:
         camps_found = 0
         available_camps = set(TablutBoard.CAMPS)
@@ -267,7 +259,7 @@ def black_chains(state):
         chain, camps_found, _ = find_chain(
             pawn, black_pawns, available_camps, camps_found=0, chain=set()
         )
-        if camps_found == 2:
+        if camps_found > 1:
             chains.append(chain)
     return chains
 
@@ -293,11 +285,11 @@ def find_chain(pawn, black_pawns, available_camps, camps_found=0, chain=set()):
     for neighbor in good_neighbors:
         if neighbor in black_pawns:
             black_pawns.remove(neighbor)
-        chain, new_camps_found, _ = find_chain(
-            neighbor, black_pawns, available_camps, new_camps_found, chain
-        )
-        if new_camps_found > camps_found:
-            chain.add(pawn)
+            chain, new_camps_found, _ = find_chain(
+                neighbor, black_pawns, available_camps, new_camps_found, chain
+            )
+            if new_camps_found > camps_found:
+                chain.add(pawn)
     return chain, new_camps_found, black_pawns
 
 
@@ -306,40 +298,29 @@ def blocked_goals(state):
     Return a value representing the number of blocked white goals
     for each corner, in range [-1, 1]
     '''
-    total = 0.0
+    value = 0.0
     player = gutils.other_player(state.to_move)
     black_pawns = state.pawns[TPawnType.BLACK]
-    for corner in CORNERS:
-        value = 0.0
-        left_goals = set(GOALS[corner])
-        for blocking_position in BEST_BLOCKING_POSITIONS[corner]:
-            if blocking_position in black_pawns:
-                value += 1
-                for direction in corner:
-                    left_goals.discard(
-                        TablutBoard.from_direction_to_pawn(
-                            blocking_position, direction
-                        )
-                    )
-        if value == 2:
-            total += 4
-            continue
-        for outer_corner in OUTER_CORNERS[corner]:
-            if outer_corner in black_pawns:
-                value += 2
-                for direction in corner:
-                    left_goals.discard(
-                        TablutBoard.from_direction_to_pawn(
-                            outer_corner, direction
-                        )
-                    )
-        for left_goal in left_goals:
-            if left_goal in black_pawns:
-                value += 1
-        total += value
-    if player == TPlayerType.WHITE:
-        total = -total
-    return total * (1 / 16)
+    white_pawns = state.pawns[TPawnType.WHITE]
+    free_goals = set(TablutBoard.WHITE_GOALS)
+
+    for pos in TablutBoard.OUTER_CORNERS:
+        if pos in black_pawns:
+            value -= (1 / 9)
+            free_goals.difference_update(
+                TablutBoard.unique_orthogonal_k_neighbors(pos))
+        elif pos in white_pawns:
+            value -= (1 / 16)
+
+    for goal in free_goals:
+        if goal in black_pawns:
+            value -= (1 / 17)
+        elif goal in white_pawns:
+            value -= (1 / 20)
+
+    if player == TPlayerType.BLACK:
+        value = -value
+    return value
 
 
 def king_killers(state):

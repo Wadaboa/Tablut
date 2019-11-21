@@ -12,30 +12,6 @@ import tablut_player.config as conf
 ZobristKeys = namedtuple('ZobristKeys', 'board, to_move')
 
 
-class TablutAction:
-
-    def __init__(self, move, state):
-        self.move = move
-        self.state = state
-
-    def __repr__(self):
-        return f'Move: {self.move}\nState: {self.state}'
-
-
-class TablutValuedAction(TablutAction):
-
-    def __init__(self, move, state, value):
-        super().__init__(move, state)
-        self.value = value
-
-    @classmethod
-    def from_action(cls, action, value):
-        return cls(action.move, action.state, value)
-
-    def __repr__(self):
-        return f'Move: {self.move}\nState: {self.state}\nValue: {self.value}'
-
-
 class TablutGameState:
     '''
     Tablut game state
@@ -43,12 +19,18 @@ class TablutGameState:
 
     ZOBRIST_KEYS = ZobristKeys(board={}, to_move={})
 
-    def __init__(self, to_move, utility, pawns, moves=set(), old_state=None):
+    def __init__(self, to_move, utility, pawns, moves=[], old_state=None):
         self.to_move = to_move
         self.utility = utility
         self.pawns = pawns
         self.moves = moves
         self.old_state = old_state
+        
+    '''
+    def compute_moves(self):
+        if len(self.moves) == 0 and not TablutGame.terminal_test(self):
+            self.moves = TablutGame.player_moves(self.pawns, self.to_move)
+    '''
 
     def __eq__(self, other):
         return self.pawns == other.pawns and self.to_move == other.to_move
@@ -201,6 +183,26 @@ class TablutBoardPosition(object):
             ) if diag == -1
             else None
         )
+
+    def middle_position(self, position):
+        '''
+        Return a board position representing the orthogonal middle point
+        '''
+        if self.row == position.row:
+            return (
+                TablutBoardPosition(
+                    row=self.row,
+                    col=int(abs(self.col-position.col)/2)
+                )
+            )
+        elif self.col == position.col:
+            return (
+                TablutBoardPosition(
+                    row=int(abs(self.row-position.row)/2),
+                    col=self.col
+                )
+            )
+        return None
 
     def __eq__(self, position):
         return (

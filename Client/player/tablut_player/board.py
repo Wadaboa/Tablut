@@ -62,16 +62,23 @@ class TablutBoard():
         TablutBoardPosition(row=7, col=8)
     }
 
+    OUTER_CORNERS = {
+        TablutBoardPosition(row=1, col=1),
+        TablutBoardPosition(row=1, col=7),
+        TablutBoardPosition(row=7, col=1),
+        TablutBoardPosition(row=7, col=7)
+    }
+
     @classmethod
     def moves(cls, pawns, pawn_coords):
         '''
         Return a set of tuples of coordinates representing every possibile
         new position of the given pawn
         '''
-        moves = set()
+        moves = []
         positions = cls.legal_moves(pawns, pawn_coords)
         for pos in positions:
-            moves.add((pawn_coords, pos))
+            moves.append((pawn_coords, pos))
         return moves
 
     @classmethod
@@ -337,6 +344,16 @@ class TablutBoard():
         return [up_pawn, left_pawn, right_pawn, down_pawn]
 
     @classmethod
+    def unique_orthogonal_k_neighbors(cls, pawn, k=1):
+        '''
+        Return the valid k-level orthogonal neighbors of the given pawn
+        '''
+        return {
+            pos for pos in cls.orthogonal_k_neighbors(pawn, k)
+            if pos is not None
+        }
+
+    @classmethod
     def diagonal_k_neighbors(cls, pawn, k=1):
         '''
         Return the k-level diagonal neighbors of the given pawn
@@ -346,6 +363,15 @@ class TablutBoard():
         r_down_pawn = TablutBoardPosition(row=pawn.row + k, col=pawn.col + k)
         l_down_pawn = TablutBoardPosition(row=pawn.row + k, col=pawn.col - k)
         return [l_up_pawn, r_up_pawn, r_down_pawn, l_down_pawn]
+
+    @classmethod
+    def unique_diagonal_k_neighbors(cls, pawn, k=1):
+        '''
+        Return the valid k-level diagonal neighbors of the given pawn
+        '''
+        return {
+            pos for pos in cls.diagonal_k_neighbors(pawn, k) if pos is not None
+        }
 
     @classmethod
     def full_k_neighbors(cls, pawn, k=1):

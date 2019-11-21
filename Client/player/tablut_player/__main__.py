@@ -93,6 +93,7 @@ def autoplay(gui):
     update_gui(gui, game_state.pawns)
     while not game.terminal_test(game_state):
         game.inc_turn()
+        print(f'Turn {game.turn}')
         white_move = get_move(
             game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD
         )
@@ -112,6 +113,7 @@ def autoplay(gui):
         game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
     )
     print(winner)
+    print('-' * 50)
 
 
 def play():
@@ -131,9 +133,14 @@ def play():
             gutils.is_black(conf.PLAYER_ROLE)
         )
         conn.start()
-        get_state(state_queue, exception_queue)
+        get_state(state_queue, exception_queue)  # Get initial board state
         if gutils.is_black(conf.PLAYER_ROLE):
-            pawns, _ = get_state(state_queue, exception_queue)
+            pawns, _ = get_state(
+                state_queue, exception_queue)  # Get enemy move
+            enemy_move = gutils.from_pawns_to_move(
+                game_state.pawns, pawns, game_state.to_move
+            )
+            game_state = game.result(game_state, enemy_move)
         while not game.terminal_test(game_state):
             game.inc_turn()
             print(f'Turn {game.turn}')
@@ -141,7 +148,7 @@ def play():
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(
                     get_move, game, game_state,
-                    conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD
+                    conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD, 4, enemy_move
                 )
                 my_move = future.result()
             game_state = game.result(game_state, my_move)
@@ -196,32 +203,32 @@ def test_state():
     '''
     initial_pawns = {
         gutils.TablutPawnType.WHITE: {
-            gutils.TablutBoardPosition(6, 4),
-            gutils.TablutBoardPosition(5, 4),
-            gutils.TablutBoardPosition(8, 2),
+            gutils.TablutBoardPosition(6, 1),
+            gutils.TablutBoardPosition(7, 1),
+            gutils.TablutBoardPosition(7, 8),
+            gutils.TablutBoardPosition(2, 4),
+            gutils.TablutBoardPosition(3, 4),
             gutils.TablutBoardPosition(4, 5),
-            gutils.TablutBoardPosition(2, 0),
-            gutils.TablutBoardPosition(0, 6),
-            gutils.TablutBoardPosition(4, 2),
-            gutils.TablutBoardPosition(3, 4)
+            gutils.TablutBoardPosition(4, 6),
+            gutils.TablutBoardPosition(5, 4)
         },
         gutils.TablutPawnType.BLACK: {
-            gutils.TablutBoardPosition(1, 7),
-            gutils.TablutBoardPosition(5, 6),
-            gutils.TablutBoardPosition(7, 2),
-            gutils.TablutBoardPosition(1, 5),
-            gutils.TablutBoardPosition(0, 3),
-            gutils.TablutBoardPosition(2, 6),
+            gutils.TablutBoardPosition(5, 2),
+            gutils.TablutBoardPosition(6, 3),
+            gutils.TablutBoardPosition(6, 4),
+            gutils.TablutBoardPosition(6, 5),
+            gutils.TablutBoardPosition(6, 7),
+            gutils.TablutBoardPosition(7, 6),
             gutils.TablutBoardPosition(8, 5),
-            gutils.TablutBoardPosition(5, 8),
-            gutils.TablutBoardPosition(4, 0),
-            gutils.TablutBoardPosition(3, 6),
-            gutils.TablutBoardPosition(8, 1),
-            gutils.TablutBoardPosition(6, 1),
+            gutils.TablutBoardPosition(8, 4),
             gutils.TablutBoardPosition(7, 4),
+            gutils.TablutBoardPosition(8, 8),
+            gutils.TablutBoardPosition(4, 8),
+            gutils.TablutBoardPosition(3, 8),
+            gutils.TablutBoardPosition(1, 2),
             gutils.TablutBoardPosition(0, 4),
             gutils.TablutBoardPosition(4, 1),
-            gutils.TablutBoardPosition(8, 4)
+            gutils.TablutBoardPosition(0, 2)
         },
         gutils.TablutPawnType.KING: {gutils.TablutBoardPosition(4, 4)}
     }
