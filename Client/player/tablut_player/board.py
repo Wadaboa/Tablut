@@ -416,16 +416,37 @@ class TablutBoard():
         and the remaining positions to kill him
         '''
         king = cls.king_position(pawns)
-        king_neighbors = cls.orthogonal_k_neighbors(king, k=1)
+        left_pawn = TablutBoardPosition(row=king.row, col=king.col - 1)
+        right_pawn = TablutBoardPosition(row=king.row, col=king.col + 1)
+        up_pawn = TablutBoardPosition(row=king.row - 1, col=king.col)
+        down_pawn = TablutBoardPosition(row=king.row + 1, col=king.col)
+        king_neighbors = [(left_pawn, right_pawn), (up_pawn, down_pawn)]
         free_neighbors = []
+        killer_neighbors = []
         killers = 0
-        for neighbor in king_neighbors:
-            if (neighbor in cls.OUTER_CAMPS or neighbor == cls.CASTLE or
-                    neighbor in pawns[TablutPawnType.BLACK]):
+        is_black = lambda n: (
+            n in cls.OUTER_CAMPS or n == cls.CASTLE or
+            n in pawns[TablutPawnType.BLACK]
+        )
+        is_white = lambda n: (
+            n in pawns[TablutPawnType.WHITE]
+        )
+        for neighbor_one, neighbor_two in king_neighbors:
+            if is_black(neighbor_one) and is_black(neighbor_two):
+                killers += 2
+            elif is_black(neighbor_one) or is_black(neighbor_two):
                 killers += 1
-            elif neighbor not in pawns[TablutPawnType.WHITE]:
-                free_neighbors.append(neighbor)
-        return killers, free_neighbors
+                if is_black(neighbor_one) and not is_white(neighbor_two):
+                    killer_neighbors.append(neighbor_two)
+                elif is_black(neighbor_two) and not is_white(neighbor_one):
+                    killer_neighbors.append(neighbor_one)
+            if (not is_white(neighbor_one) and
+                    neighbor_one not in killer_neighbors):
+                free_neighbors.append(neighbor_one)
+            if (not is_white(neighbor_two) and
+                    neighbor_two not in killer_neighbors):
+                free_neighbors.append(neighbor_two)
+        return killers, free_neighbors, killer_neighbors
 
     @classmethod
     def _remove_dead_pawns(cls, pawns, my_type, moved_pawn):

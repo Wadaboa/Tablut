@@ -4,6 +4,7 @@ Configuration files used by the other modules
 
 
 AUTOPLAY = False
+TRAIN = False
 SERVER_IP = '127.0.0.1'
 MOVE_TIMEOUT = 60
 MOVE_TIME_OVERHEAD = 10

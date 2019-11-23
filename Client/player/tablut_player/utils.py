@@ -48,3 +48,8 @@ def get_rand(seq):
         seq = list(seq)
     random.seed(time.time())
     return random.choice(seq)
+
+
+def get_rand_double(min_val, max_val):
+    random.seed(time.time())
+    return random.uniform(min_val, max_val)

@@ -18,6 +18,7 @@ import tablut_player.game_utils as gutils
 import tablut_player.strategy as strat
 import tablut_player.utils as utils
 import tablut_player.heuristic as heu
+import tablut_player.genetic as gen
 from tablut_player.board import TablutBoardGUI, TablutBoard
 from tablut_player.game import TablutGame
 from tablut_player.strategy import get_move
@@ -51,11 +52,16 @@ def parse_args():
         '-a', '--autoplay', dest='autoplay', action='store_true',
         help="avoid connecting to the server and play locally with both roles"
     )
+    parser.add_argument(
+        '-g', '--genetic', dest='genetic', action='store_true',
+        help="train tablut player using a genetic algorithm"
+    )
     args = parser.parse_args()
     conf.MOVE_TIMEOUT = int(args.timeout)
     conf.SERVER_IP = args.server_ip
     conf.DEBUG = args.debug
     conf.AUTOPLAY = args.autoplay
+    conf.TRAIN = args.genetic
     conf.PLAYER_ROLE = args.role
     if args.role == conf.BLACK_ROLE:
         conf.PLAYER_SERVER_PORT = conf.BLACK_SERVER_PORT
@@ -63,6 +69,7 @@ def parse_args():
 
 def entry():
     parse_args()
+    strat.init_openings()
     if conf.AUTOPLAY:
         app = QtWidgets.QApplication(sys.argv)
         gui_scene = TablutBoardGUI()
@@ -80,6 +87,8 @@ def entry():
         app.exec_()
         del gui_view
         del gui_scene
+    elif conf.TRAIN:
+        gen.genetic_algorithm(ngen=3, pop_number=2)
     else:
         thr = threading.Thread(target=play, name='GameManager')
         thr.start()
@@ -91,11 +100,13 @@ def autoplay(gui):
     game = TablutGame()
     game_state = game.initial
     update_gui(gui, game_state.pawns)
+    black_ttable = strat.TT()
+    white_ttable = strat.TT()
     while not game.terminal_test(game_state):
         game.inc_turn()
         print(f'Turn {game.turn}')
         white_move = get_move(
-            game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD
+            game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD, tt=white_ttable
         )
         game_state = game.result(game_state, white_move)
         update_gui(gui, game_state.pawns)
@@ -103,7 +114,7 @@ def autoplay(gui):
             break
         black_move = get_move(
             game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
-            prev_move=white_move
+            prev_move=white_move, tt=black_ttable
         )
         game_state = game.result(game_state, black_move)
         update_gui(gui, game_state.pawns)
@@ -119,6 +130,7 @@ def autoplay(gui):
 def play():
     game = TablutGame()
     game_state = game.initial
+    ttable = strat.TT()
     try:
         state_queue = queue.Queue(1)
         action_queue = queue.Queue(1)
@@ -148,7 +160,7 @@ def play():
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(
                     get_move, game, game_state,
-                    conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD, 4, enemy_move
+                    conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD, 4, enemy_move, ttable
                 )
                 my_move = future.result()
             game_state = game.result(game_state, my_move)
@@ -233,6 +245,84 @@ def test_state():
         gutils.TablutPawnType.KING: {gutils.TablutBoardPosition(4, 4)}
     }
     player = gutils.TablutPlayerType.WHITE
+    return gutils.TablutGameState(
+        player,
+        0,
+        initial_pawns,
+        moves=TablutGame.player_moves(initial_pawns, player)
+    )
+
+
+def test_state_2():
+    '''
+    State used to test the game
+    '''
+    initial_pawns = {
+        gutils.TablutPawnType.WHITE: {
+            gutils.TablutBoardPosition(2, 4),
+            gutils.TablutBoardPosition(3, 4),
+            gutils.TablutBoardPosition(4, 5),
+            gutils.TablutBoardPosition(4, 6),
+            gutils.TablutBoardPosition(5, 6)
+        },
+        gutils.TablutPawnType.BLACK: {
+            gutils.TablutBoardPosition(0, 4),
+            gutils.TablutBoardPosition(0, 5),
+            gutils.TablutBoardPosition(1, 4),
+            gutils.TablutBoardPosition(3, 0),
+            gutils.TablutBoardPosition(4, 0),
+            gutils.TablutBoardPosition(4, 1),
+            gutils.TablutBoardPosition(4, 3),
+            gutils.TablutBoardPosition(4, 7),
+            gutils.TablutBoardPosition(4, 8),
+            gutils.TablutBoardPosition(3, 8),
+            gutils.TablutBoardPosition(6, 8),
+            gutils.TablutBoardPosition(7, 8),
+            gutils.TablutBoardPosition(6, 3)
+        },
+        gutils.TablutPawnType.KING: {gutils.TablutBoardPosition(5, 4)}
+    }
+    player = gutils.TablutPlayerType.WHITE
+    return gutils.TablutGameState(
+        player,
+        0,
+        initial_pawns,
+        moves=TablutGame.player_moves(initial_pawns, player)
+    )
+
+
+def test_state_3():
+    '''
+    State used to test the game
+    '''
+    initial_pawns = {
+        gutils.TablutPawnType.WHITE: {
+            gutils.TablutBoardPosition(2, 4),
+            gutils.TablutBoardPosition(3, 6),
+            gutils.TablutBoardPosition(4, 2),
+            gutils.TablutBoardPosition(4, 5),
+            gutils.TablutBoardPosition(4, 6),
+            gutils.TablutBoardPosition(6, 3),
+            gutils.TablutBoardPosition(6, 6)
+        },
+        gutils.TablutPawnType.BLACK: {
+            gutils.TablutBoardPosition(0, 4),
+            gutils.TablutBoardPosition(1, 1),
+            gutils.TablutBoardPosition(3, 5),
+            gutils.TablutBoardPosition(3, 8),
+            gutils.TablutBoardPosition(4, 0),
+            gutils.TablutBoardPosition(4, 8),
+            gutils.TablutBoardPosition(5, 0),
+            gutils.TablutBoardPosition(5, 4),
+            gutils.TablutBoardPosition(5, 8),
+            gutils.TablutBoardPosition(7, 7),
+            gutils.TablutBoardPosition(8, 1),
+            gutils.TablutBoardPosition(8, 4),
+            gutils.TablutBoardPosition(8, 5)
+        },
+        gutils.TablutPawnType.KING: {gutils.TablutBoardPosition(3, 2)}
+    }
+    player = gutils.TablutPlayerType.BLACK
     return gutils.TablutGameState(
         player,
         0,

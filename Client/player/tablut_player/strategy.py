@@ -44,214 +44,153 @@ BLACK_OPENINGS = {
     ]
 }
 
-
-class TranspositionTableEntryType(Enum):
-    '''
-    Search strategy node alpha-beta type. It could represent
-    the exact value of a position, its lower bound (beta),
-    or its upper bound (alpha).
-    '''
-
-    EXACT, LOWER, UPPER = range(3)
-
-    def __str__(self):
-        return f'{self.name}'
-
-    def __repr__(self):
-        return f'Type: {self.name}'
-
-
-class TranspositionTableEntry:
-
-    def __init__(self, valued_action, depth, node_type, best_move):
-        self.valued_action = valued_action
-        self.depth = depth
-        self.node_type = node_type
-        self.best_move = best_move
-
-    def __repr__(self):
-        return (
-            f'Action: {self.valued_action}\n'
-            f'Depth: {self.depth}\n'
-            f'Type: {self.node_type}\n'
-            f'Best move: {self.best_move}'
-        )
-
-
-class TranspositionTable:
-
-    def __init__(self):
-        self.table = {}
-
-    def get_action(self, state):
-        entry = self.get_entry(state)
-        return entry.valued_action if entry is not None else None
-
-    def get_entry(self, state):
-        return self.table.get(hash(state))
-
-    def get_value(self, state, depth, alpha, beta):
-        entry = self.table.get(hash(state))
-        value = None
-        if entry is not None and entry.depth >= depth:
-            if entry.node_type == TranspositionTableEntryType.EXACT:
-                value = entry.valued_action.value
-            elif (entry.node_type == TranspositionTableEntryType.LOWER and
-                  entry.valued_action.value > alpha):
-                alpha = entry.valued_action.value
-            elif (entry.node_type == TranspositionTableEntryType.UPPER and
-                  entry.valued_action.value < beta):
-                beta = entry.valued_action.value
-            if alpha >= beta:
-                value = entry.valued_action.value
-        return value, alpha, beta
-
-    def put_action(self, valued_action, depth, best_move, node_type):
-        self.table[hash(valued_action.state)] = TranspositionTableEntry(
-            valued_action=valued_action,
-            depth=depth,
-            node_type=node_type,
-            best_move=best_move
-        )
-
-    def clear(self):
-        self.table = {}
-
 # ______________________________________________________________________________
 # Alpha-Beta tree search
 
 
-TABLE = TranspositionTable()
+class TTEntry:
 
+    def __init__(self, key, moves, value, depth):
+        self.key = key
+        self.moves = moves
+        self.value = value
+        self.depth = depth
 
-def alphabeta_search(game, state, eval_fn, cutoff, timeout, max_depth):
-    '''
-    Minimax with alpha-beta pruning search strategy
-    '''
-
-    def max_value(action, alpha, beta, depth, max_d):
-        state = action.state
-        value, alpha, beta = TABLE.get_value(state, depth, alpha, beta)
-        if value is not None:
-            return value, 1
-        if cutoff(game, state, depth, start_time, timeout):
-            value = eval_fn(game.turn, action.state)
-            node_type = TranspositionTableEntryType.EXACT
-            if value <= alpha:
-                node_type = TranspositionTableEntryType.LOWER
-            elif value >= beta:
-                node_type = TranspositionTableEntryType.UPPER
-            TABLE.put_action(
-                gutils.TablutValuedAction.from_action(action, value),
-                max_d, None, node_type
-            )
-            return value, 1
-        value = -INF
-        total = 0
-        for new_action in game.ordered_valued_actions(state):
-            new_value, index = min_value(
-                new_action, alpha, beta, depth - 1, max_d
-            )
-            value = max(value, new_value)
-            total += index
-            if value >= beta:
-                '''
-                TABLE.put_action(
-                    gutils.TablutValuedAction.from_action(action, value),
-                    max_d, TranspositionTableEntryType.UPPER
-                )
-                '''
-                return value, total
-            alpha = max(alpha, value)
-
-        node_type = TranspositionTableEntryType.EXACT
-        if value <= alpha:
-            node_type = TranspositionTableEntryType.LOWER
-        elif value >= beta:
-            node_type = TranspositionTableEntryType.UPPER
-        TABLE.put_action(
-            gutils.TablutValuedAction.from_action(action, value),
-            max_d, None, node_type
+    def __repr__(self):
+        return (
+            f'Key: {self.key}\n'
+            f'Moves: {self.moves}\n'
+            f'Value: {self.value}\n'
+            f'Depth: {self.depth}'
         )
-        return value, total
 
-    def min_value(action, alpha, beta, depth, max_d):
-        state = action.state
-        value, alpha, beta = TABLE.get_value(state, depth, alpha, beta)
-        if value is not None:
-            return value, 1
-        if cutoff(game, state, depth, start_time, timeout):
-            value = eval_fn(game.turn, action.state)
-            value = eval_fn(game.turn, action.state)
-            node_type = TranspositionTableEntryType.EXACT
-            if value <= alpha:
-                node_type = TranspositionTableEntryType.LOWER
-            elif value >= beta:
-                node_type = TranspositionTableEntryType.UPPER
-            TABLE.put_action(
-                gutils.TablutValuedAction.from_action(action, value),
-                max_d, None, node_type
-            )
-            return value, 1
-        value = INF
-        total = 0
-        for new_action in game.ordered_valued_actions(state):
-            new_value, index = max_value(
-                new_action, alpha, beta, depth - 1, max_d
-            )
-            value = min(value, new_value)
-            total += index
-            if value <= alpha:
-                '''
-                TABLE.put_action(
-                    gutils.TablutValuedAction.from_action(action, value),
-                    best_move, max_d, TranspositionTableEntryType.UPPER
-                )
-                '''
-                return value, total
-            beta = min(beta, value)
 
-        node_type = TranspositionTableEntryType.EXACT
-        if value <= alpha:
-            node_type = TranspositionTableEntryType.LOWER
-        elif value >= beta:
-            node_type = TranspositionTableEntryType.UPPER
-        TABLE.put_action(
-            gutils.TablutValuedAction.from_action(action, value),
-            max_d, None, node_type
-        )
-        return value, total
+class TT:
+
+    def __init__(self):
+        self.table = {}
+
+    def get_entry(self, state):
+        hash_value = hash(state)
+        entry = self.table.get(hash_value)
+        if entry is not None and entry.key == hash_value:
+            return entry
+        return None
+
+    def get_moves(self, state):
+        entry = self.get_entry(state)
+        return entry.moves if entry is not None else None
+
+    def get_value(self, state):
+        entry = self.get_entry(state)
+        return entry.value if entry is not None else None
+
+    def store_entry(self, entry):
+        self.table[entry.key] = entry
+
+    def clear(self):
+        self.table = {}
+
+
+def alphabeta_cutoff_search(state, game, timeout, d=2, tt=None):
+    """Search game to determine best action; use alpha-beta pruning.
+    This version cuts off search and uses an evaluation function."""
+
+    # Functions used by alphabeta
+    def max_value(state, alpha, beta, depth):
+        entry = tt.get_entry(state)
+        if entry is not None and entry.moves is not None:
+            state.moves = entry.moves
+        else:
+            state.moves = game.player_moves(state.pawns, state.to_move)
+
+        moves = state.moves
+
+        if alphabeta_cutoff(game, state, depth, start_time, timeout):
+            if entry is not None and entry.depth == depth:
+                value = entry.value
+            else:
+                value = heu.heuristic(game.turn, state)
+                entry = TTEntry(hash(state), moves, value, depth)
+                tt.store_entry(entry)
+            # print(value)
+            return value
+        v = -INF
+        for move in moves:
+            value = min_value(game.result(state, move, compute_moves=False),
+                              alpha, beta, depth - 1)
+            if value > v:
+                v = value
+                moves.remove(move)
+                moves.insert(0, move)
+            if v >= beta:
+                entry = TTEntry(hash(state), moves, v, depth)
+                tt.store_entry(entry)
+                return v
+            alpha = max(alpha, v)
+        entry = TTEntry(hash(state), moves, v, depth)
+        tt.store_entry(entry)
+        return v
+
+    def min_value(state, alpha, beta, depth):
+        entry = tt.get_entry(state)
+        if entry is not None and entry.moves is not None:
+            state.moves = entry.moves
+        else:
+            state.moves = game.player_moves(state.pawns, state.to_move)
+
+        moves = state.moves
+
+        if alphabeta_cutoff(game, state, depth, start_time, timeout):
+            if entry is not None and entry.depth == depth:
+                value = entry.value
+            else:
+                value = heu.heuristic(game.turn, state)
+                entry = TTEntry(hash(state), moves, value, depth)
+                tt.store_entry(entry)
+            # print(value)
+            return value
+        v = INF
+        for move in moves:
+            value = max_value(game.result(state, move, compute_moves=False),
+                              alpha, beta, depth - 1)
+            if value < v:
+                v = value
+                moves.remove(move)
+                moves.insert(0, move)
+            if v <= alpha:
+                entry = TTEntry(hash(state), moves, v, depth)
+                tt.store_entry(entry)
+                return v
+            beta = min(beta, v)
+        entry = TTEntry(hash(state), moves, v, depth)
+        tt.store_entry(entry)
+        return v
 
     start_time = time.time()
     best_score = -INF
     beta = INF
-    best_action = None
-    big_total = 0
-    print(f'Ricerca Mosse:')
-    for max_d in range(max_depth, -1, -1):
-        actions = game.ordered_valued_actions(state)
-        for action in actions:
-            move = action.move
-            value, total = min_value(
-                action, best_score, beta, max_depth - max_d, max_d
-            )
-            big_total += total
-            print(f'Mossa analizzata {move}')
-            if value > best_score:
-                print(
-                    f'Old best score {best_score}, new best score {value}\n'
-                    f'Old best action {best_action.move if best_action is not None else "None"}, new best action {move}\n'
-                    f'Total moves Analized: {total} \n'
-                )
-                best_score = value
-                best_action = action
-            if not in_time(start_time, timeout):
-                break
-        print(f'FINITO DEPTH {max_depth - max_d}')
-    print(f' The total amount of moves analized is {big_total}')
-    print(TABLE.table[hash(best_action.state)])
-    return best_action.move
+    best_move = None
+    moves = state.moves
+    for current_depth in range(0, d + 1, 2):
+        for move in moves:
+            # print(move)
+            v = min_value(game.result(state, move, compute_moves=False),
+                          best_score, beta, current_depth)
+            if v > best_score:
+                best_score = v
+                best_move = move
+                if best_score == 1000:
+                    return best_move
+                moves.remove(best_move)
+                moves.insert(0, best_move)
+                #print(f'The best move is {best_move}')
+        #print(f'END DEPTH {current_depth}')
 
+    final_time = time.time() - start_time
+    # print(
+    #    f'Tempo di ricerca:{final_time} -heuristica migliore:{best_score} - mossa migliore:{best_move}')
+    return best_move
 
 # ______________________________________________________________________________
 # Monte Carlo tree search
@@ -346,7 +285,7 @@ def ucb(node, const=math.sqrt(2)):
 # ______________________________________________________________________________
 
 
-def get_move(game, state, timeout, max_depth=4, prev_move=None):
+def get_move(game, state, timeout, max_depth=4, prev_move=None, tt=None):
     #move = None
     # move = alphabeta_player(game, state, timeout, max_depth)
     # move = monte_carlo_player(game, state, timeout)
@@ -358,15 +297,79 @@ def get_move(game, state, timeout, max_depth=4, prev_move=None):
     if game.turn < 2:
         move = first_move(state, prev_move)
     else:
-        move = alphabeta_cutoff_search(state, game, d=0, timeout=60)
-        print(move)
+        move = alphabeta_cutoff_search(state, game, timeout, 0, tt)
+        # print(move)
 
     # print(value)
 
     if move is None:
-        print('Alphabeta failure')
+        #print('Alphabeta failure')
         move = random_player(state)
     return move
+
+
+def init_openings():
+    # White openings
+    moves = WHITE_OPENINGS
+    for i in range(len(moves)):
+        from_move, to_move = moves[i]
+        moves.append((from_move, to_move.horizontal_mirroring()))
+    for i in range(len(moves)):
+        from_move, to_move = moves[i]
+        moves.append((
+            from_move.vertical_mirroring(), to_move.vertical_mirroring()
+        ))
+        moves.append((
+            from_move.diagonal_mirroring(diag=1),
+            to_move.diagonal_mirroring(diag=1)
+        ))
+        moves.append((
+            from_move.diagonal_mirroring(diag=-1),
+            to_move.diagonal_mirroring(diag=-1)
+        ))
+
+    # Black openings
+    initial_white_keys = list(BLACK_OPENINGS.keys())
+    white_keys = list(initial_white_keys)
+    for white_key in initial_white_keys:
+        from_white, to_white = white_key
+        white_keys.append(white_key)
+        for black_move in BLACK_OPENINGS[white_key]:
+            from_black, to_black = black_move
+            key = (from_white, to_white.horizontal_mirroring())
+            white_keys.append(key)
+            BLACK_OPENINGS.setdefault(key, []).append((
+                from_black.horizontal_mirroring(),
+                to_black.horizontal_mirroring()
+            ))
+    for white_key in white_keys:
+        from_white, to_white = white_key
+        for black_move in BLACK_OPENINGS[white_key]:
+            from_black, to_black = black_move
+            key = (
+                from_white.vertical_mirroring(),
+                to_white.vertical_mirroring()
+            )
+            BLACK_OPENINGS.setdefault(key, []).append((
+                from_black.vertical_mirroring(),
+                to_black.vertical_mirroring()
+            ))
+            key = (
+                from_white.diagonal_mirroring(diag=1),
+                to_white.diagonal_mirroring(diag=1)
+            )
+            BLACK_OPENINGS.setdefault(key, []).append((
+                from_black.diagonal_mirroring(diag=1),
+                to_black.diagonal_mirroring(diag=1)
+            ))
+            key = (
+                from_white.diagonal_mirroring(diag=-1),
+                to_white.diagonal_mirroring(diag=-1)
+            )
+            BLACK_OPENINGS.setdefault(key, []).append((
+                from_black.diagonal_mirroring(diag=-1),
+                to_black.diagonal_mirroring(diag=-1)
+            ))
 
 
 def first_move(state, prev_move=None):
@@ -374,68 +377,10 @@ def first_move(state, prev_move=None):
     First opening move
     '''
     if state.to_move == gutils.TablutPlayerType.WHITE:
-        moves = WHITE_OPENINGS
-        for i in range(len(moves)):
-            from_move, to_move = moves[i]
-            moves.append((from_move, to_move.horizontal_mirroring()))
-        for i in range(len(moves)):
-            from_move, to_move = moves[i]
-            moves.append((
-                from_move.vertical_mirroring(), to_move.vertical_mirroring()
-            ))
-            moves.append((
-                from_move.diagonal_mirroring(diag=1),
-                to_move.diagonal_mirroring(diag=1)
-            ))
-            moves.append((
-                from_move.diagonal_mirroring(diag=-1),
-                to_move.diagonal_mirroring(diag=-1)
-            ))
-        return utils.get_rand(moves)
-
+        return utils.get_rand(WHITE_OPENINGS)
     elif prev_move is not None:
-        initial_white_keys = list(BLACK_OPENINGS.keys())
-        white_keys = list(initial_white_keys)
-        for white_key in initial_white_keys:
-            from_white, to_white = white_key
-            white_keys.append(white_key)
-            for black_move in BLACK_OPENINGS[white_key]:
-                from_black, to_black = black_move
-                key = (from_white, to_white.horizontal_mirroring())
-                white_keys.append(key)
-                BLACK_OPENINGS.setdefault(key, []).append((
-                    from_black.horizontal_mirroring(),
-                    to_black.horizontal_mirroring()
-                ))
-        for white_key in white_keys:
-            from_white, to_white = white_key
-            for black_move in BLACK_OPENINGS[white_key]:
-                from_black, to_black = black_move
-                key = (
-                    from_white.vertical_mirroring(),
-                    to_white.vertical_mirroring()
-                )
-                BLACK_OPENINGS.setdefault(key, []).append((
-                    from_black.vertical_mirroring(),
-                    to_black.vertical_mirroring()
-                ))
-                key = (
-                    from_white.diagonal_mirroring(diag=1),
-                    to_white.diagonal_mirroring(diag=1)
-                )
-                BLACK_OPENINGS.setdefault(key, []).append((
-                    from_black.diagonal_mirroring(diag=1),
-                    to_black.diagonal_mirroring(diag=1)
-                ))
-                key = (
-                    from_white.diagonal_mirroring(diag=-1),
-                    to_white.diagonal_mirroring(diag=-1)
-                )
-                BLACK_OPENINGS.setdefault(key, []).append((
-                    from_black.diagonal_mirroring(diag=-1),
-                    to_black.diagonal_mirroring(diag=-1)
-                ))
         return utils.get_rand(BLACK_OPENINGS[prev_move])
+    return None
 
 
 def random_player(state):
@@ -469,10 +414,10 @@ def alphabeta_cutoff(game, state, depth, start_time, timeout):
     when there's no time left, or when the search depth has reached
     the given maximum
     '''
-    # or not in_time(start_time, timeout)
     return (
         depth == 0 or
-        game.terminal_test(state)
+        game.terminal_test(state) or
+        not in_time(start_time, timeout)
     )
 
 
@@ -650,164 +595,3 @@ def negascout_alphabeta(game, state, depth, alpha, beta):
                 return best_value, best_move
             adaptive_beta = max(alpha, best_value) + 1
     return best_value, best_move
-
-
-class TTEntryType(Enum):
-    '''
-    Search strategy node alpha-beta type. It could represent
-    the exact value of a position, its lower bound (beta),
-    or its upper bound (alpha).
-    '''
-
-    EXACT, LOWER, UPPER = range(3)
-
-    def __str__(self):
-        return f'{self.name}'
-
-    def __repr__(self):
-        return f'Type: {self.name}'
-
-
-class TTEntry:
-
-    def __init__(self, key, moves, value, depth, entry_type=None):
-        self.key = key
-        self.moves = moves
-        self.value = value
-        self.depth = depth
-        self.entry_type = entry_type
-
-    def __repr__(self):
-        return (
-            f'Key: {self.key}\n'
-            f'Moves: {self.moves}'
-            f'Type: {self.entry_type}\n'
-            f'Value: {self.value}\n'
-            f'Depth: {self.depth}\n'
-        )
-
-
-class TT:
-
-    def __init__(self):
-        self.table = {}
-
-    def get_entry(self, state):
-        hash_value = hash(state)
-        entry = self.table.get(hash_value)
-        if entry is not None and entry.key == hash_value:
-            return entry
-        return None
-
-    def get_moves(self, state):
-        entry = self.get_entry(state)
-        return entry.moves if entry is not None else None
-
-    def get_value(self, state):
-        entry = self.get_entry(state)
-        return entry.value if entry is not None else None
-
-    def store_entry(self, entry):
-        self.table[entry.key] = entry
-
-    def clear(self):
-        self.table = {}
-
-
-TTABLE = TT()
-
-
-def alphabeta_cutoff_search(state, game, d=2, timeout=60):
-    """Search game to determine best action; use alpha-beta pruning.
-    This version cuts off search and uses an evaluation function."""
-
-    # Functions used by alphabeta
-    def max_value(state, alpha, beta, depth):
-        entry = TTABLE.get_entry(state)
-        if entry is not None and entry.moves is not None:
-            state.moves = entry.moves
-        else:
-            state.moves = game.player_moves(state.pawns, state.to_move)
-
-        moves = state.moves
-
-        if alphabeta_cutoff(game, state, depth, start_time, timeout):
-            if entry is not None and entry.depth == depth:
-                value = entry.value
-            else:
-                value = heu.heuristic(game.turn, state)
-                entry = TTEntry(hash(state), moves, value, depth)
-                TTABLE.store_entry(entry)
-            return value
-        v = -INF
-        for move in moves:
-            value = min_value(game.result(state, move, compute_moves=False),
-                              alpha, beta, depth - 1)
-            if value > v:
-                v = value
-                moves.remove(move)
-                moves.insert(0, move)
-            if v >= beta:
-                entry = TTEntry(hash(state), moves, v, depth)
-                TTABLE.store_entry(entry)
-                return v
-            alpha = max(alpha, v)
-        entry = TTEntry(hash(state), moves, v, depth)
-        TTABLE.store_entry(entry)
-        return v
-
-    def min_value(state, alpha, beta, depth):
-        entry = TTABLE.get_entry(state)
-        if entry is not None and entry.moves is not None:
-            state.moves = entry.moves
-        else:
-            state.moves = game.player_moves(state.pawns, state.to_move)
-
-        moves = state.moves
-
-        if alphabeta_cutoff(game, state, depth, start_time, timeout):
-            if entry is not None and entry.depth == depth:
-                value = entry.value
-            else:
-                value = heu.heuristic(game.turn, state)
-                entry = TTEntry(hash(state), moves, value, depth)
-                TTABLE.store_entry(entry)
-            return value
-        v = INF
-        for move in moves:
-            value = max_value(game.result(state, move, compute_moves=False),
-                              alpha, beta, depth - 1)
-            if value < v:
-                v = value
-                moves.remove(move)
-                moves.insert(0, move)
-            if v <= alpha:
-                entry = TTEntry(hash(state), moves, v, depth)
-                TTABLE.store_entry(entry)
-                return v
-            beta = min(beta, v)
-        entry = TTEntry(hash(state), moves, v, depth)
-        TTABLE.store_entry(entry)
-        return v
-
-    start_time = time.time()
-    best_score = -INF
-    beta = INF
-    best_move = None
-    moves = state.moves
-    for current_depth in range(0, d + 1, 2):
-        for move in moves:
-            v = min_value(game.result(state, move, compute_moves=False),
-                          best_score, beta, current_depth)
-            if v > best_score:
-                best_score = v
-                best_move = move
-                moves.remove(best_move)
-                moves.insert(0, best_move)
-                print(f'The best move is {best_move}')
-        print(f'END DEPTH {current_depth}')
-
-    final_time = time.time() - start_time
-    print(
-        f'Tempo di ricerca:{final_time} -heuristica migliore:{best_score} - mossa migliore:{best_move}')
-    return best_move
