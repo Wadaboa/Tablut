@@ -111,14 +111,14 @@ class TablutGame(Game):
 
         # White pawns
         white_pawns_positions = {
-            TablutBoardPosition(row=2, col=4),
-            TablutBoardPosition(row=3, col=4),
-            TablutBoardPosition(row=5, col=4),
-            TablutBoardPosition(row=6, col=4),
-            TablutBoardPosition(row=4, col=2),
-            TablutBoardPosition(row=4, col=3),
-            TablutBoardPosition(row=4, col=5),
-            TablutBoardPosition(row=4, col=6)
+            TablutBoardPosition.create(row=2, col=4),
+            TablutBoardPosition.create(row=3, col=4),
+            TablutBoardPosition.create(row=5, col=4),
+            TablutBoardPosition.create(row=6, col=4),
+            TablutBoardPosition.create(row=4, col=2),
+            TablutBoardPosition.create(row=4, col=3),
+            TablutBoardPosition.create(row=4, col=5),
+            TablutBoardPosition.create(row=4, col=6)
         }
         pawns[TablutPawnType.WHITE] = white_pawns_positions
 
@@ -143,7 +143,7 @@ class TablutGame(Game):
             keys.add(random.getrandbits(64))
         for i in range(conf.BOARD_SIZE):
             for j in range(conf.BOARD_SIZE):
-                pos = TablutBoardPosition(row=i, col=j)
+                pos = TablutBoardPosition.create(row=i, col=j)
                 for pawn_type in TablutPawnType.values():
                     key = keys.pop()
                     TablutGameState.ZOBRIST_KEYS.board.setdefault(

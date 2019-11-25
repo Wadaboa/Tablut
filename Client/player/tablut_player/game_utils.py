@@ -25,7 +25,7 @@ class TablutGameState:
         self.pawns = pawns
         self.moves = moves
         self.old_state = old_state
-        
+
     '''
     def compute_moves(self):
         if len(self.moves) == 0 and not TablutGame.terminal_test(self):
@@ -129,22 +129,26 @@ class TablutPawnDirection(Enum):
     UP, DOWN, LEFT, RIGHT = range(4)
 
 
+'''
+
+'''
+
+
 class TablutBoardPosition(object):
     '''
     Tablut board cell
     '''
 
-    def __new__(cls, row, col):
-        size = conf.BOARD_SIZE
-        instance = None
-        if row >= 0 and row < size and col >= 0 and col < size:
-            instance = super(TablutBoardPosition, cls).__new__(cls)
-            instance.__init__(row, col)
-        return instance
-
     def __init__(self, row, col):
         self.row = row
         self.col = col
+
+    @classmethod
+    def create(cls, row, col):
+        size = conf.BOARD_SIZE
+        if row < size and row >= 0 and col < size and col >= 0:
+            return cls(row, col)
+        return None
 
     def distance(self, other):
         '''
@@ -156,7 +160,7 @@ class TablutBoardPosition(object):
         '''
         Return a board position mirrored on the horizontal axis
         '''
-        return TablutBoardPosition(
+        return TablutBoardPosition.create(
             row=conf.BOARD_SIZE - self.row - 1,
             col=self.col
         )
@@ -165,7 +169,7 @@ class TablutBoardPosition(object):
         '''
         Return a board position mirrored on the vertical axis
         '''
-        return TablutBoardPosition(
+        return TablutBoardPosition.create(
             row=self.row,
             col=conf.BOARD_SIZE - self.col - 1
         )
@@ -177,8 +181,8 @@ class TablutBoardPosition(object):
         '''
         size = conf.BOARD_SIZE - 1
         return (
-            TablutBoardPosition(row=self.col, col=self.row) if diag == 1
-            else TablutBoardPosition(
+            TablutBoardPosition.create(row=self.col, col=self.row) if diag == 1
+            else TablutBoardPosition.create(
                 row=size-self.col, col=size-self.row
             ) if diag == -1
             else None
@@ -190,14 +194,14 @@ class TablutBoardPosition(object):
         '''
         if self.row == position.row:
             return (
-                TablutBoardPosition(
+                TablutBoardPosition.create(
                     row=self.row,
                     col=int(abs(self.col-position.col)/2)
                 )
             )
         elif self.col == position.col:
             return (
-                TablutBoardPosition(
+                TablutBoardPosition.create(
                     row=int(abs(self.row-position.row)/2),
                     col=self.col
                 )
@@ -285,7 +289,7 @@ def from_server_state_to_pawns(board, turn):
             pawn_type = TablutPawnType.value_of(elem)
             if pawn_type is not None:
                 pawns.setdefault(pawn_type, set()).add(
-                    TablutBoardPosition(row=i, col=j)
+                    TablutBoardPosition.create(row=i, col=j)
                 )
     return pawns, to_move
 

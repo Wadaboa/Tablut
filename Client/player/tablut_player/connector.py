@@ -6,31 +6,24 @@ Module that helps connecting to Tablut server
 import struct
 import json
 import socket
-import threading
+from multiprocessing import Process
 
 import tablut_player.game_utils as gutils
 
 
-class ServerException(Exception):
+class Connector(Process):
     '''
-    Exception raised in the communication with the server
-    '''
-
-
-class Connector(threading.Thread):
-    '''
-    Create a connector thread to handle send and receive
+    Create a connector process to handle send and receive
     between player and server
     '''
 
-    def __init__(self, ip_addr, port, player_name, state_queue, action_queue, exception_queue, is_black=False):
-        threading.Thread.__init__(self, name='ConnectorThread')
+    def __init__(self, ip_addr, port, player_name, state_queue, action_queue, is_black=False):
+        Process.__init__(self, name='ConnectorProcess')
         self.ip_addr = ip_addr
         self.port = port
         self.player_name = player_name
         self.state_queue = state_queue
         self.action_queue = action_queue
-        self.exception_queue = exception_queue
         self.is_black = is_black
         self.sock = None
 
@@ -54,10 +47,14 @@ class Connector(threading.Thread):
                 self._put_state(state)
             self.sock.close()
         except ConnectionRefusedError as cre:
-            self.exception_queue.put(cre)
+            self.state_queue.put(cre)
+            self.state_queue.join()
         except ConnectionResetError as cre:
             self.sock.close()
-            self.exception_queue.put(cre)
+            self.state_queue.put(cre)
+            self.state_queue.join()
+        finally:
+            self.state_queue.close()
 
     def _connect(self):
         '''
@@ -111,24 +108,21 @@ class Connector(threading.Thread):
         '''
         Wait until there is an action in the queue and return it
         '''
-        while self.action_queue.empty():
-            if not is_socket_valid(self.sock):
-                pass
-        return self.action_queue.get(block=True)
+        action = self.action_queue.get()
+        self.action_queue.task_done()
+        return action
 
     def _put_state(self, state):
         '''
         Wait until there is a free slot in the state queue and put the new state
         '''
-        while self.state_queue.full():
-            if not is_socket_valid(self.sock):
-                pass
-        self.state_queue.put(state, block=True)
+        self.state_queue.put(state)
+        self.state_queue.join()
 
 
 def connect(ip_addr, port):
     '''
-    Bind a TCP socket to (ip_addr, port)
+    Bind a TCP socket to(ip_addr, port)
     '''
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)

@@ -21,52 +21,52 @@ class TablutBoard():
     Tablut board rules and interaction
     '''
 
-    CASTLE = TablutBoardPosition(row=4, col=4)
+    CASTLE = TablutBoardPosition.create(row=4, col=4)
     INNER_CAMPS = {
-        TablutBoardPosition(row=4, col=0),
-        TablutBoardPosition(row=0, col=4),
-        TablutBoardPosition(row=8, col=4),
-        TablutBoardPosition(row=4, col=8)
+        TablutBoardPosition.create(row=4, col=0),
+        TablutBoardPosition.create(row=0, col=4),
+        TablutBoardPosition.create(row=8, col=4),
+        TablutBoardPosition.create(row=4, col=8)
     }
     OUTER_CAMPS = {
-        TablutBoardPosition(row=3, col=0),
-        TablutBoardPosition(row=5, col=0),
-        TablutBoardPosition(row=4, col=1),
-        TablutBoardPosition(row=0, col=3),
-        TablutBoardPosition(row=0, col=5),
-        TablutBoardPosition(row=1, col=4),
-        TablutBoardPosition(row=3, col=8),
-        TablutBoardPosition(row=4, col=7),
-        TablutBoardPosition(row=5, col=8),
-        TablutBoardPosition(row=8, col=3),
-        TablutBoardPosition(row=7, col=4),
-        TablutBoardPosition(row=8, col=5)
+        TablutBoardPosition.create(row=3, col=0),
+        TablutBoardPosition.create(row=5, col=0),
+        TablutBoardPosition.create(row=4, col=1),
+        TablutBoardPosition.create(row=0, col=3),
+        TablutBoardPosition.create(row=0, col=5),
+        TablutBoardPosition.create(row=1, col=4),
+        TablutBoardPosition.create(row=3, col=8),
+        TablutBoardPosition.create(row=4, col=7),
+        TablutBoardPosition.create(row=5, col=8),
+        TablutBoardPosition.create(row=8, col=3),
+        TablutBoardPosition.create(row=7, col=4),
+        TablutBoardPosition.create(row=8, col=5)
     }
     CAMPS = INNER_CAMPS.union(OUTER_CAMPS)
     WHITE_GOALS = {
-        TablutBoardPosition(row=0, col=1),
-        TablutBoardPosition(row=0, col=2),
-        TablutBoardPosition(row=0, col=6),
-        TablutBoardPosition(row=0, col=7),
-        TablutBoardPosition(row=8, col=1),
-        TablutBoardPosition(row=8, col=2),
-        TablutBoardPosition(row=8, col=6),
-        TablutBoardPosition(row=8, col=7),
-        TablutBoardPosition(row=1, col=0),
-        TablutBoardPosition(row=2, col=0),
-        TablutBoardPosition(row=6, col=0),
-        TablutBoardPosition(row=7, col=0),
-        TablutBoardPosition(row=1, col=8),
-        TablutBoardPosition(row=2, col=8),
-        TablutBoardPosition(row=6, col=8),
-        TablutBoardPosition(row=7, col=8)
+        TablutBoardPosition.create(row=0, col=1),
+        TablutBoardPosition.create(row=0, col=2),
+        TablutBoardPosition.create(row=0, col=6),
+        TablutBoardPosition.create(row=0, col=7),
+        TablutBoardPosition.create(row=8, col=1),
+        TablutBoardPosition.create(row=8, col=2),
+        TablutBoardPosition.create(row=8, col=6),
+        TablutBoardPosition.create(row=8, col=7),
+        TablutBoardPosition.create(row=1, col=0),
+        TablutBoardPosition.create(row=2, col=0),
+        TablutBoardPosition.create(row=6, col=0),
+        TablutBoardPosition.create(row=7, col=0),
+        TablutBoardPosition.create(row=1, col=8),
+        TablutBoardPosition.create(row=2, col=8),
+        TablutBoardPosition.create(row=6, col=8),
+        TablutBoardPosition.create(row=7, col=8)
     }
 
     OUTER_CORNERS = {
-        TablutBoardPosition(row=1, col=1),
-        TablutBoardPosition(row=1, col=7),
-        TablutBoardPosition(row=7, col=1),
-        TablutBoardPosition(row=7, col=7)
+        TablutBoardPosition.create(row=1, col=1),
+        TablutBoardPosition.create(row=1, col=7),
+        TablutBoardPosition.create(row=7, col=1),
+        TablutBoardPosition.create(row=7, col=7)
     }
 
     @classmethod
@@ -101,10 +101,10 @@ class TablutBoard():
         positions = set()
         for i in range(conf.BOARD_SIZE):
             positions.add(
-                TablutBoardPosition(row=i, col=pawn_coords.col)
+                TablutBoardPosition.create(row=i, col=pawn_coords.col)
             )
             positions.add(
-                TablutBoardPosition(row=pawn_coords.row, col=i)
+                TablutBoardPosition.create(row=pawn_coords.row, col=i)
             )
         return positions
 
@@ -153,19 +153,19 @@ class TablutBoard():
         Return the k-distant cell from the given pawn, in the given direction
         '''
         if pawn_direction == TablutPawnDirection.UP:
-            return TablutBoardPosition(
+            return TablutBoardPosition.create(
                 row=initial_pawn_coords.row - k, col=initial_pawn_coords.col
             )
         elif pawn_direction == TablutPawnDirection.DOWN:
-            return TablutBoardPosition(
+            return TablutBoardPosition.create(
                 row=initial_pawn_coords.row + k, col=initial_pawn_coords.col
             )
         elif pawn_direction == TablutPawnDirection.LEFT:
-            return TablutBoardPosition(
+            return TablutBoardPosition.create(
                 row=initial_pawn_coords.row, col=initial_pawn_coords.col - k
             )
         elif pawn_direction == TablutPawnDirection.RIGHT:
-            return TablutBoardPosition(
+            return TablutBoardPosition.create(
                 row=initial_pawn_coords.row, col=initial_pawn_coords.col + k
             )
         return None
@@ -180,22 +180,22 @@ class TablutBoard():
         if pawn_direction == TablutPawnDirection.LEFT:
             for j in range(pawn_coords.col):
                 unreachables.add(
-                    TablutBoardPosition(row=pawn_coords.row, col=j)
+                    TablutBoardPosition.create(row=pawn_coords.row, col=j)
                 )
         elif pawn_direction == TablutPawnDirection.RIGHT:
             for j in range(pawn_coords.col + 1, conf.BOARD_SIZE):
                 unreachables.add(
-                    TablutBoardPosition(row=pawn_coords.row, col=j)
+                    TablutBoardPosition.create(row=pawn_coords.row, col=j)
                 )
         elif pawn_direction == TablutPawnDirection.UP:
             for i in range(pawn_coords.row):
                 unreachables.add(
-                    TablutBoardPosition(row=i, col=pawn_coords.col)
+                    TablutBoardPosition.create(row=i, col=pawn_coords.col)
                 )
         elif pawn_direction == TablutPawnDirection.DOWN:
             for i in range(pawn_coords.row + 1, conf.BOARD_SIZE):
                 unreachables.add(
-                    TablutBoardPosition(row=i, col=pawn_coords.col)
+                    TablutBoardPosition.create(row=i, col=pawn_coords.col)
                 )
         return unreachables
 
@@ -300,7 +300,7 @@ class TablutBoard():
 
     @classmethod
     def simulate_distance(cls, pawns, initial_coords, final_coords,
-                          n_moves=0, max_moves=3, unwanted_positions=[]):
+                          max_moves, unwanted_positions=[], n_moves=0):
         '''
         Compute a simulation of the minimum number of moves required
         to reach the given final coordinates, by ignoring oppenent moves
@@ -322,9 +322,9 @@ class TablutBoard():
                         pawns,
                         move,
                         final_coords,
-                        n_moves + 1,
                         max_moves,
-                        unwanted_positions
+                        unwanted_positions,
+                        n_moves + 1
                     )
                 )
         min_moves = max_moves + 1
@@ -337,10 +337,10 @@ class TablutBoard():
         '''
         Return the k-level neighbors of the given pawn
         '''
-        left_pawn = TablutBoardPosition(row=pawn.row, col=pawn.col - k)
-        right_pawn = TablutBoardPosition(row=pawn.row, col=pawn.col + k)
-        up_pawn = TablutBoardPosition(row=pawn.row - k, col=pawn.col)
-        down_pawn = TablutBoardPosition(row=pawn.row + k, col=pawn.col)
+        left_pawn = TablutBoardPosition.create(row=pawn.row, col=pawn.col - k)
+        right_pawn = TablutBoardPosition.create(row=pawn.row, col=pawn.col + k)
+        up_pawn = TablutBoardPosition.create(row=pawn.row - k, col=pawn.col)
+        down_pawn = TablutBoardPosition.create(row=pawn.row + k, col=pawn.col)
         return [up_pawn, left_pawn, right_pawn, down_pawn]
 
     @classmethod
@@ -358,10 +358,14 @@ class TablutBoard():
         '''
         Return the k-level diagonal neighbors of the given pawn
         '''
-        l_up_pawn = TablutBoardPosition(row=pawn.row - k, col=pawn.col - k)
-        r_up_pawn = TablutBoardPosition(row=pawn.row - k, col=pawn.col + k)
-        r_down_pawn = TablutBoardPosition(row=pawn.row + k, col=pawn.col + k)
-        l_down_pawn = TablutBoardPosition(row=pawn.row + k, col=pawn.col - k)
+        l_up_pawn = TablutBoardPosition.create(
+            row=pawn.row - k, col=pawn.col - k)
+        r_up_pawn = TablutBoardPosition.create(
+            row=pawn.row - k, col=pawn.col + k)
+        r_down_pawn = TablutBoardPosition.create(
+            row=pawn.row + k, col=pawn.col + k)
+        l_down_pawn = TablutBoardPosition.create(
+            row=pawn.row + k, col=pawn.col - k)
         return [l_up_pawn, r_up_pawn, r_down_pawn, l_down_pawn]
 
     @classmethod
@@ -416,19 +420,21 @@ class TablutBoard():
         and the remaining positions to kill him
         '''
         king = cls.king_position(pawns)
-        left_pawn = TablutBoardPosition(row=king.row, col=king.col - 1)
-        right_pawn = TablutBoardPosition(row=king.row, col=king.col + 1)
-        up_pawn = TablutBoardPosition(row=king.row - 1, col=king.col)
-        down_pawn = TablutBoardPosition(row=king.row + 1, col=king.col)
+        left_pawn = TablutBoardPosition.create(row=king.row, col=king.col - 1)
+        right_pawn = TablutBoardPosition.create(row=king.row, col=king.col + 1)
+        up_pawn = TablutBoardPosition.create(row=king.row - 1, col=king.col)
+        down_pawn = TablutBoardPosition.create(row=king.row + 1, col=king.col)
         king_neighbors = [(left_pawn, right_pawn), (up_pawn, down_pawn)]
         free_neighbors = []
         killer_neighbors = []
         killers = 0
-        is_black = lambda n: (
+
+        def is_black(n): return (
             n in cls.OUTER_CAMPS or n == cls.CASTLE or
             n in pawns[TablutPawnType.BLACK]
         )
-        is_white = lambda n: (
+
+        def is_white(n): return (
             n in pawns[TablutPawnType.WHITE]
         )
         for neighbor_one, neighbor_two in king_neighbors:

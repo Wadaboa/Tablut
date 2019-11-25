@@ -15,31 +15,31 @@ from tablut_player.game_utils import TablutBoardPosition as TBPos
 
 
 WHITE_OPENINGS = [
-    (TBPos(row=4, col=2), TBPos(row=7, col=2)),
-    (TBPos(row=4, col=2), TBPos(row=8, col=2))
+    (TBPos.create(row=4, col=2), TBPos.create(row=7, col=2)),
+    (TBPos.create(row=4, col=2), TBPos.create(row=8, col=2))
 ]
 BLACK_OPENINGS = {
-    (TBPos(row=4, col=2), TBPos(row=5, col=2)): [
-        (TBPos(row=5, col=8), TBPos(row=5, col=7))
+    (TBPos.create(row=4, col=2), TBPos.create(row=5, col=2)): [
+        (TBPos.create(row=5, col=8), TBPos.create(row=5, col=7))
     ],
-    (TBPos(row=4, col=2), TBPos(row=6, col=2)): [
-        (TBPos(row=3, col=0), TBPos(row=3, col=2))
+    (TBPos.create(row=4, col=2), TBPos.create(row=6, col=2)): [
+        (TBPos.create(row=3, col=0), TBPos.create(row=3, col=2))
     ],
-    (TBPos(row=4, col=2), TBPos(row=7, col=2)): [
-        (TBPos(row=3, col=0), TBPos(row=3, col=2))
+    (TBPos.create(row=4, col=2), TBPos.create(row=7, col=2)): [
+        (TBPos.create(row=3, col=0), TBPos.create(row=3, col=2))
     ],
-    (TBPos(row=4, col=2), TBPos(row=8, col=2)): [
-        (TBPos(row=4, col=1), TBPos(row=8, col=1)),
-        (TBPos(row=3, col=0), TBPos(row=3, col=2))
+    (TBPos.create(row=4, col=2), TBPos.create(row=8, col=2)): [
+        (TBPos.create(row=4, col=1), TBPos.create(row=8, col=1)),
+        (TBPos.create(row=3, col=0), TBPos.create(row=3, col=2))
     ],
-    (TBPos(row=4, col=3), TBPos(row=5, col=3)): [
-        (TBPos(row=0, col=3), TBPos(row=4, col=3))
+    (TBPos.create(row=4, col=3), TBPos.create(row=5, col=3)): [
+        (TBPos.create(row=0, col=3), TBPos.create(row=4, col=3))
     ],
-    (TBPos(row=4, col=3), TBPos(row=6, col=3)): [
-        (TBPos(row=0, col=3), TBPos(row=4, col=3))
+    (TBPos.create(row=4, col=3), TBPos.create(row=6, col=3)): [
+        (TBPos.create(row=0, col=3), TBPos.create(row=4, col=3))
     ],
-    (TBPos(row=4, col=3), TBPos(row=7, col=3)): [
-        (TBPos(row=0, col=3), TBPos(row=4, col=3))
+    (TBPos.create(row=4, col=3), TBPos.create(row=7, col=3)): [
+        (TBPos.create(row=0, col=3), TBPos.create(row=4, col=3))
     ]
 }
 
@@ -109,7 +109,7 @@ def alphabeta_cutoff_search(state, game, timeout, d=2, tt=None):
             if entry is not None and entry.depth == depth:
                 value = entry.value
             else:
-                value = heu.heuristic(game.turn, state)
+                value = heu.heuristic(state)
                 entry = TTEntry(hash(state), moves, value, depth)
                 tt.store_entry(entry)
             # print(value)
@@ -144,7 +144,7 @@ def alphabeta_cutoff_search(state, game, timeout, d=2, tt=None):
             if entry is not None and entry.depth == depth:
                 value = entry.value
             else:
-                value = heu.heuristic(game.turn, state)
+                value = heu.heuristic(state)
                 entry = TTEntry(hash(state), moves, value, depth)
                 tt.store_entry(entry)
             # print(value)
@@ -186,7 +186,7 @@ def alphabeta_cutoff_search(state, game, timeout, d=2, tt=None):
                 #print(f'The best move is {best_move}')
         #print(f'END DEPTH {current_depth}')
 
-    final_time = time.time() - start_time
+    #final_time = time.time() - start_time
     # print(
     #    f'Tempo di ricerca:{final_time} -heuristica migliore:{best_score} - mossa migliore:{best_move}')
     return best_move
@@ -296,7 +296,7 @@ def get_move(game, state, timeout, max_depth=4, prev_move=None, tt=None):
     if game.turn < 2:
         move = first_move(state, prev_move)
     else:
-        move = alphabeta_cutoff_search(state, game, timeout, 2, tt)
+        move = alphabeta_cutoff_search(state, game, timeout, max_depth, tt)
         # print(move)
 
     # print(value)
