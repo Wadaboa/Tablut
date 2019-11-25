@@ -3,8 +3,6 @@ Tablut states evaluation functions
 '''
 
 
-import random
-
 import tablut_player.utils as utils
 import tablut_player.game_utils as gutils
 import tablut_player.config as conf
@@ -38,6 +36,17 @@ def get_moves(state):
     )
 
 
+def get_pawns(state, king=False):
+    '''
+    Return white and black pawns, with or without considering the king
+    '''
+    white_pawns = (
+        TablutBoard.player_pawns(state.pawns, TPlayerType.WHITE) if king
+        else state.pawns[TPawnType.WHITE]
+    )
+    return white_pawns, TablutBoard.player_pawns(state.pawns, TPlayerType.BLACK)
+
+
 def potential_kills(state):
     '''
     Return a value representing the number of potential player pawns killers,
@@ -54,18 +63,8 @@ def potential_kills(state):
                     count += 1
         return count
 
-    white_pawns = state.pawns[TPawnType.WHITE]
-    black_pawns = state.pawns[TPawnType.BLACK]
-    if state.to_move == TPlayerType.WHITE:
-        white_moves = state.moves
-        black_moves = TablutGame.player_moves(
-            state.pawns, TPlayerType.BLACK
-        )
-    else:
-        black_moves = state.moves
-        white_moves = TablutGame.player_moves(
-            state.pawns, TPlayerType.WHITE
-        )
+    white_pawns, black_pawns = get_pawns(state, king=False)
+    white_moves, black_moves = get_moves(state)
     black_dead = count_dead(
         white_moves,
         set(white_pawns).union({TablutBoard.CASTLE}, TablutBoard.OUTER_CAMPS),
@@ -92,19 +91,16 @@ def king_moves_to_goals(state):
     to a certain goal, and an even higher value if we are within
     1 to 3 moves to more than one corner, in range [-1, 1]
     '''
+    value = -0.3
     upper_bound = 0.6
     distances = [
         dis for dis in GOALS_DISTANCES.values() if dis < MAX_KING_MOVES
     ]
-    value = -0.3
-    check = False
-    if distances.count(1) > 1:
-        value = 0.99
-        check = True
-    elif distances.count(1) == 1:
-        value = 0.9
-        check = True
-    if len(distances) > 0 and not check:
+    check_distances = len(distances) > 0
+    if distances.count(1) >= 1:
+        value = 0.99 if distances.count(1) > 1 else 0.9
+        check_distances = False
+    if check_distances:
         value = 0
         distances.sort()
         for ind, distance in enumerate(distances):
@@ -120,35 +116,32 @@ def black_blocking_chains(state):
     Return a value representing the number of chained black pawns,
     that are blocking goal positions, in range [-1, 1]
     '''
-    chains = black_chains(state)
     value = 0
-    weights = [4/10, 6/10, 8/10, 9/10]
     upper_bound = 0.9
+    corners_weights = [4 / 10, 6 / 10, 8 / 10, 9 / 10]
+    chains = black_chains(state)
     for chain in chains:
-        whites_found, blacks_found, corners_found = blocked_chain_pawns(
-            state, chain)
-        if corners_found == 0:
-            value = -0.9 + (1 / 12)*(blacks_found)
+        whites, blacks, corners = blocked_chain_pawns(state, chain)
+        if corners == 0:
+            value = -0.9 + (1 / 12) * blacks
             return heuristic_pov(state, TPlayerType.BLACK, value)
-        chain_value = corners_found * weights[corners_found-1]
-        if whites_found > 1:
-            chain_value /= whites_found
-        if blacks_found > 2:
-            chain_value -= chain_value/blacks_found
+        chain_value = corners * corners_weights[corners - 1]
+        if whites > 1:
+            chain_value /= whites
+        if blacks > 2:
+            chain_value -= (chain_value / blacks)
         value += chain_value
 
-    if value > upper_bound:
-        value = upper_bound
+    value = utils.clip(value, upper_bound)
     return heuristic_pov(state, TPlayerType.BLACK, value)
 
 
 def blocked_chain_pawns(state, chain):
     '''
-    Return the number of white and black pawns blocked from a chain of black
-    pawns
+    Return the number of white pawns, black pawns and corners
+    blocked from a chain of black pawns
     '''
-    white_pawns = TablutBoard.player_pawns(state.pawns, TPlayerType.WHITE)
-    black_pawns = TablutBoard.player_pawns(state.pawns, TPlayerType.BLACK)
+    white_pawns, black_pawns = get_pawns(state, king=True)
     near_corners = find_near_corners(chain)
     whites_found = 0
     blacks_found = 0
@@ -202,14 +195,14 @@ def blocked_chain_pawns(state, chain):
     return whites_found, blacks_found, len(near_corners)
 
 
-def find_near_corners(chain):
+def find_near_corners(chain, max_distance=6):
     '''
     Return all the probable corners blocked by the given chain
     '''
     near_corners = set()
     for pawn in chain:
         for corner in CORNERS:
-            if corner.distance(pawn) < 6:
+            if corner.distance(pawn) < max_distance:
                 near_corners.add(corner)
     return near_corners
 
@@ -219,8 +212,9 @@ def black_chains(state):
     Return every chains of black pawns connecting two or more camps groups
     '''
     chains = []
-    black_pawns = set(state.pawns[TPawnType.BLACK])
-    black_pawns.difference_update(TablutBoard.CAMPS)
+    black_pawns = set(state.pawns[TPawnType.BLACK]).difference(
+        TablutBoard.CAMPS
+    )
     while len(black_pawns) > 0:
         camps_found = 0
         available_camps = set(TablutBoard.CAMPS)
@@ -267,9 +261,8 @@ def blocked_goals(state):
     Return a value representing the number of blocked white goals
     for each corner, in range [-1, 1]
     '''
-    value = 0.0
-    black_pawns = state.pawns[TPawnType.BLACK]
-    white_pawns = state.pawns[TPawnType.WHITE]
+    value = 0
+    white_pawns, black_pawns = get_pawns(state, king=False)
     free_goals = {
         pos for pos, dis in GOALS_DISTANCES.items() if dis < MAX_KING_MOVES + 1
     }
@@ -296,24 +289,18 @@ def king_killers(state):
     Return a value representing the number of black pawns,
     camps and castle around the king, in range [-1, 1]
     '''
-    value = 0
-    black_moves = state.moves
-    if state.to_move == TPlayerType.WHITE:
-        black_moves = TablutGame.player_moves(
-            state.pawns, TPlayerType.BLACK
-        )
+    _, black_moves = get_moves(state)
     free_positions = []
     killer_positions = []
     killers, free_positions, killer_positions = (
         TablutBoard.potential_king_killers(state.pawns)
     )
-
     possible_killers_count = _reachable_positions(killer_positions, black_moves)
-
     occupable_free_positions = _reachable_positions(free_positions, black_moves)
 
+    value = 0
     values = [killers, occupable_free_positions, possible_killers_count]
-    weights = [0, 1/32, 0]
+    weights = [0, 1 / 32, 0]
     if (TablutBoard.is_king_in_castle(state.pawns) or
             TablutBoard.is_king_near_castle(state.pawns)):
         if killers >= 3:
@@ -321,39 +308,35 @@ def king_killers(state):
             if possible_killers_count != 0:
                 value = 0.9
         elif killers == 2:
-            weights = [1/6, 1/10, 1/10]
+            weights = [1 / 6, 1 / 10, 1 / 10]
         elif killers == 1:
-            weights = [1/8, 1/25, 1/10]
+            weights = [1 / 8, 1 / 25, 1 / 10]
     else:
         if killers >= 1 and possible_killers_count != 0:
             value = 0.9
         elif killers >= 3:
             value = 0.7
         elif killers == 2:
-            weights = [1/4, 1/10, 0]
+            weights = [1 / 4, 1 / 10, 0]
         elif killers == 1:
-            weights = [1/3, 1/10, 0]
+            weights = [1 / 3, 1 / 10, 0]
     if value == 0:
         for val, weight in zip(values, weights):
-            value += val*weight
+            value += (val * weight)
     return heuristic_pov(state, TPlayerType.BLACK, value)
 
 
 def _reachable_positions(positions, moves):
+    '''
+    Return the number of reachable positions with the given pawns and moves
+    '''
     count = 0
     for position in positions:
-        for _, to in moves:
-            if position == to:
+        for _, to_move in moves:
+            if position == to_move:
                 count += 1
                 break
     return count
-
-
-def random_perturbation(radius=0.001):
-    '''
-    Return a random number in the symmetric interval [-radius, radius]
-    '''
-    return random.uniform(-radius, radius)
 
 
 def piece_difference(state):
@@ -369,16 +352,19 @@ def piece_difference(state):
 
 def pawns_in_corners(state):
     '''
+    Return a value representing the number of player and enemy pawns
+    in the extreme corners, in range [-1, 1]
     '''
-    player = gutils.other_player(state.to_move)
     value = 0
-    player_pawns = TablutBoard.player_pawns(state.pawns, player)
+    player_pawns = TablutBoard.player_pawns(
+        state.pawns, gutils.other_player(state.to_move)
+    )
     enemy_pawns = TablutBoard.player_pawns(state.pawns, state.to_move)
     for corner in CORNERS:
         if corner in player_pawns:
-            value -= 1/20
+            value -= 1 / 20
         elif corner in enemy_pawns:
-            value += 1/30
+            value += 1 / 30
     return value
 
 
@@ -391,7 +377,7 @@ def _init_goals_distances(state):
         )
 
 
-HEURISTIC_WEIGHTS = {
+HEURISTICS = {
     blocked_goals: 2,
     piece_difference: 2,
     potential_kills: 0.5,
@@ -411,9 +397,9 @@ def set_heuristic_weights(weights):
     '''
     Set given heuristic weights
     '''
-    heus = HEURISTIC_WEIGHTS.keys()
+    heus = HEURISTICS.keys()
     for heu, weight in zip(heus, weights):
-        HEURISTIC_WEIGHTS[heu] = weight
+        HEURISTICS[heu] = weight
 
 
 def heuristic(state):
@@ -428,10 +414,9 @@ def heuristic(state):
     _init_goals_distances(state)
     good_weights = 0
     score = 0
-    for heu, weigth in HEURISTIC_WEIGHTS.items():
+    for heu, weigth in HEURISTICS.items():
         value = heu(state)
         if value != 0:
             good_weights += weigth
         score += value * weigth
-    # value += random_perturbation()
     return int((score * 100) / good_weights)

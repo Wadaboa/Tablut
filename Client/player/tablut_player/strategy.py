@@ -375,6 +375,7 @@ def first_move(state, prev_move=None):
     '''
     First opening move
     '''
+    utils.set_random_seed()
     if state.to_move == gutils.TablutPlayerType.WHITE:
         return utils.get_rand(WHITE_OPENINGS)
     elif prev_move is not None:

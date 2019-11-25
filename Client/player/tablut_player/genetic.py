@@ -2,12 +2,12 @@
 Tablut states evaluation functions weights computation
 '''
 
-import random
+
 import time
 import bisect
 from multiprocessing import Process, Array
 from datetime import datetime
-
+import logging
 
 import tablut_player.utils as utils
 import tablut_player.config as conf
@@ -16,10 +16,27 @@ import tablut_player.heuristic as heu
 from tablut_player.game import TablutGame
 
 
-HEURISTIC_WEIGHTS_RANGE = [0, 20]
+HEURISTICS_WEIGHTS_RANGE = [0, 20]
+
+LOGGER = logging.getLogger('GeneticLogger')
+LOGGER_FILE_HANDLER = logging.FileHandler(
+    f'train/train-{datetime.now().strftime("%d_%m_%y-%H_%M")}.log'
+)
+LOGGER_STREAM_HANDLER = logging.StreamHandler()
+LOGGER_FORMATTER = logging.Formatter(
+    '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
+)
+LOGGER_FILE_HANDLER.setFormatter(LOGGER_FORMATTER)
+LOGGER_STREAM_HANDLER.setFormatter(LOGGER_FORMATTER)
+LOGGER.addHandler(LOGGER_FILE_HANDLER)
+LOGGER.addHandler(LOGGER_STREAM_HANDLER)
+LOGGER.setLevel(logging.INFO)
 
 
 class TablutPlayer():
+    '''
+    Object representing an evaluated TablutGame player
+    '''
 
     def __init__(self, weights, white_wins=0, black_wins=0):
         self.weights = weights
@@ -47,22 +64,28 @@ class TablutPlayer():
         )
 
 
-def tournament(population):
-    results = Array('i', [0] * len(population) * len(population))
+def tournament(population, sleep=3):
+    '''
+    Play every game between every couple of players in the given population
+    '''
+    # Play
     game_num = 0
     processes = []
+    results = Array('i', [0] * (len(population) ** 2))
     for player_one in population:
         for player_two in population:
-            p = Process(
+            proc = Process(
                 target=play,
                 args=(player_one, player_two, results, game_num)
             )
-            p.start()
-            processes.append(p)
+            proc.start()
+            processes.append(proc)
             game_num += 1
-    time.sleep(3)
-    for p in processes:
-        p.join()
+    time.sleep(sleep)
+    for proc in processes:
+        proc.join()
+
+    # Collect results
     game_num = 0
     for player_one in population:
         for player_two in population:
@@ -75,6 +98,9 @@ def tournament(population):
 
 
 def play(player_one, player_two, results, game_num, max_turns=50):
+    '''
+    Play a single game between the given players and store results
+    '''
     game = TablutGame()
     game_state = game.initial
     black_ttable = strat.TT()
@@ -112,44 +138,44 @@ def play(player_one, player_two, results, game_num, max_turns=50):
 
 
 def find_best_player(player):
+    '''
+    Genetic algorithm fitness function
+    '''
     return player.white_wins + player.black_wins
 
 
-def genetic_algorithm(ngen=10, pop_number=10, gene_pool=HEURISTIC_WEIGHTS_RANGE, num_weights=len(heu.HEURISTIC_WEIGHTS), f_thresh=19, pmut=0.3):
-    now = datetime.now()
-    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-    file_string = "train-"+now.strftime("%d_%m_%y-%H_%M")+".txt"
-    file = open(f"train/{file_string}", "w", buffering=1)
-    file.write(f'\n\tTRAINING - {dt_string}\n\n')
-    print(f'\n\tTRAINING - {dt_string}\n\n')
+def log_population(population, header=''):
+    '''
+    Log the given population, with the given header string
+    '''
+    string = f'{header}\n'
+    for player in population:
+        string += f'{player.weights}\n'
+    LOGGER.info(string)
 
+
+def genetic_algorithm(ngen=10,
+                      pop_number=10,
+                      gene_pool=HEURISTICS_WEIGHTS_RANGE,
+                      num_weights=len(heu.HEURISTICS),
+                      f_thresh=19,
+                      pmut=0.3):
+    '''
+    Perform the given number of tournaments, with evolving populations
+    '''
     population = init_population(
         pop_number=pop_number,
         gene_pool=gene_pool,
         num_weights=num_weights
     )
-
-    file.write("\tStarting Population\n")
-    print("\tStarting Population\n")
-    for player in population:
-        file.write(str(player.weights)+"\n")
-        print(player.weights)
-    file.write("\n")
+    log_population(population, header='Initial population')
 
     for i in range(ngen):
         population = tournament(population)
-
-        print(f'\n\tEnd tournament {i}\n')
-        file.write(f'\n\tEnd tournament {i}\n')
-        for player in population:
-            file.write(str(player))
-            print(player)
+        log_population(population, header=f'End tournament {i}')
 
         if isinstance(population, TablutPlayer):
-            print(f'\n\n\tBEST PLAYER\n')
-            print(population)
-            file.write('\n\n\tBEST PLAYER\n')
-            file.write(str(population))
+            log_population([population], header=f'Best player')
             break
 
         population = next_generation(
@@ -157,17 +183,15 @@ def genetic_algorithm(ngen=10, pop_number=10, gene_pool=HEURISTIC_WEIGHTS_RANGE,
         )
 
     if isinstance(population, list):
-        print(f'\n\n\tLAST POPULATION\n')
-        file.write('\n\n\tLAST POPULATION\n')
-        for player in population:
-            file.write(str(player))
-            print(player)
+        log_population(population, header=f'Last population')
 
-    file.close()
     return population
 
 
 def next_generation(population, fitness_fn, gene_pool, f_thresh, pmut):
+    '''
+    Return the next generation of the given population
+    '''
     fittest_individual = fitness_threshold(fitness_fn, f_thresh, population)
     if fittest_individual:
         return fittest_individual
@@ -183,25 +207,23 @@ def next_generation(population, fitness_fn, gene_pool, f_thresh, pmut):
 
 
 def fitness_threshold(fitness_fn, f_thresh, population):
+    '''
+    Return the player that scored more than the given threshold, if it exists
+    '''
     if not f_thresh:
         return None
-
     fittest_individual = max(population, key=fitness_fn)
     if fitness_fn(fittest_individual) >= f_thresh:
         return fittest_individual
-
     return None
 
 
 def init_population(pop_number, gene_pool, num_weights):
     '''
     Initializes population for genetic algorithm
-    pop_number  :  Number of individuals in population
-    gene_pool   :  List of possible values for individuals
-    num_weights:  Number of weights to set
     '''
     population = []
-    random.seed(time.time())
+    utils.set_random_seed()
     for _ in range(pop_number):
         new_weights = [
             utils.get_rand_double(gene_pool[0], gene_pool[-1])
@@ -211,66 +233,79 @@ def init_population(pop_number, gene_pool, num_weights):
     return population
 
 
-def weighted_select(r, population, fitness_fn):
+def weighted_select(num, population, fitness_fn):
+    '''
+    Select the best num players from the given population,
+    weighted on the given fitness function
+    '''
     fitnesses = map(fitness_fn, population)
-    return weighted_sample_with_replacement(r, population, fitnesses)
+    return weighted_sample_with_replacement(num, population, fitnesses)
 
 
-def weighted_sample_with_replacement(n, seq, weights):
+def weighted_sample_with_replacement(num, seq, weights):
     '''
     Pick n samples from seq at random, with replacement, with the
     probability of each element in proportion to its corresponding
-    weight.
+    weight
     '''
     sampler = weighted_sampler(seq, weights)
-    return [sampler() for _ in range(n)]
+    return [sampler() for _ in range(num)]
 
 
 def weighted_sampler(seq, weights):
     '''
-    Return a random-sample function that picks from seq weighted by weights.
+    Return a random sampler function that picks from seq weighted by weights
     '''
     totals = []
-    for w in weights:
-        totals.append(w + totals[-1] if totals else w)
-    index = bisect.bisect(totals, random.uniform(0, totals[-1]))
+    for weight in weights:
+        totals.append(weight + totals[-1] if totals else weight)
+    index = bisect.bisect(totals, utils.get_rand_double(0, totals[-1]))
     return lambda: seq[
         index if index < len(seq) else utils.get_rand_int(0, len(seq))
     ]
 
 
-def simple_select(r, population, fitness_fn):
+def simple_select(num, population, fitness_fn):
+    '''
+    Select the best r players from the given population
+    '''
     fitnesses = list(map(fitness_fn, population))
     results = list(zip(population, fitnesses))
     results.sort(key=lambda tup: tup[1])
-    best_players = []
-    for r in range(r):
-        player, _ = results[r]
-        best_players.append(player)
-    return best_players
+    return [results[i] for i in range(num)]
 
 
 def recombine(x, y):
-    c = random.randrange(0, len(x.weights))
-    new_weights = x.weights[:c] + y.weights[c:]
+    '''
+    Crossover player x with player y and create a new player
+    '''
+    val = utils.get_rand_int(0, len(x.weights))
+    new_weights = x.weights[:val] + y.weights[val:]
     return TablutPlayer(weights=new_weights)
 
 
 def recombine_uniform(x, y):
-    n = len(x.weights)
-    new_weights = [0] * n
-    indexes = random.sample(range(n), n)
+    '''
+    Recombine player x with player y and create a new player,
+    by crossing over random subsets of weights
+    '''
+    num = len(x.weights)
+    new_weights = [0] * num
+    indexes = utils.get_rand(range(num), num)
     for i, val in enumerate(indexes):
-        new_weights[val] = x.weights[val] if i < n / 2 else y.weights[val]
+        new_weights[val] = x.weights[val] if i < num / 2 else y.weights[val]
     return TablutPlayer(weights=new_weights)
 
 
 def mutate(x, gene_pool, pmut):
-    if random.uniform(0, 1) >= pmut:
+    '''
+    Perform a random mutation of player x, with the given probability
+    '''
+    if not utils.probability(pmut):
         return x
 
-    c = random.randrange(0, len(x.weights))
-    random.seed(time.time())
+    val = utils.get_rand_int(0, len(x.weights))
+    utils.set_random_seed()
     new_gene = utils.get_rand_double(gene_pool[0], gene_pool[-1])
-    new_weights = x.weights[:c] + [new_gene] + x.weights[c + 1:]
+    new_weights = x.weights[:val] + [new_gene] + x.weights[val + 1:]
     return TablutPlayer(weights=new_weights)
