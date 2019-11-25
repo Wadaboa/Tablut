@@ -74,6 +74,9 @@ class TablutPawnType(Enum):
 
     @staticmethod
     def value_of(value):
+        '''
+        Return an instance of TablutPawnType from the given pawn type string
+        '''
         for _, pawn_type in TablutPawnType.__members__.items():
             if pawn_type.value == value.capitalize():
                 return pawn_type
@@ -81,6 +84,9 @@ class TablutPawnType(Enum):
 
     @staticmethod
     def values():
+        '''
+        Return a list of every possible TablutPawnType
+        '''
         return [
             pawn_type
             for _, pawn_type in TablutPawnType.__members__.items()
@@ -103,6 +109,9 @@ class TablutPlayerType(Enum):
 
     @staticmethod
     def value_of(value):
+        '''
+        Return an instance of TablutPlayerType from the given player type string
+        '''
         for _, player_type in TablutPlayerType.__members__.items():
             if player_type.value == value.capitalize():
                 return player_type
@@ -110,6 +119,9 @@ class TablutPlayerType(Enum):
 
     @staticmethod
     def values():
+        '''
+        Return a list of every possible TablutPlayerType
+        '''
         return [
             player_type
             for _, player_type in TablutPlayerType.__members__.items()
@@ -129,12 +141,7 @@ class TablutPawnDirection(Enum):
     UP, DOWN, LEFT, RIGHT = range(4)
 
 
-'''
-
-'''
-
-
-class TablutBoardPosition(object):
+class TablutBoardPosition:
     '''
     Tablut board cell
     '''
@@ -145,14 +152,17 @@ class TablutBoardPosition(object):
 
     @classmethod
     def create(cls, row, col):
+        '''
+        Factory method to create a TablutBoardPosition
+        '''
         size = conf.BOARD_SIZE
-        if row < size and row >= 0 and col < size and col >= 0:
+        if 0 <= row < size and 0 <= col < size:
             return cls(row, col)
         return None
 
     def distance(self, other):
         '''
-        Manhattan distance
+        Manhattan distance between two cell positions
         '''
         return abs(self.row - other.row) + abs(self.col - other.col)
 
@@ -196,13 +206,13 @@ class TablutBoardPosition(object):
             return (
                 TablutBoardPosition.create(
                     row=self.row,
-                    col=int(abs(self.col-position.col)/2)
+                    col=int(abs(self.col-position.col) / 2)
                 )
             )
         elif self.col == position.col:
             return (
                 TablutBoardPosition.create(
-                    row=int(abs(self.row-position.row)/2),
+                    row=int(abs(self.row-position.row) / 2),
                     col=self.col
                 )
             )
@@ -233,7 +243,7 @@ def is_black(player_role):
 
 def from_player_to_pawn_types(player_type):
     '''
-    Get pawn type from player type
+    Get pawn types from player type
     '''
     return (
         [TablutPawnType.KING, TablutPawnType.WHITE]
@@ -263,14 +273,14 @@ def from_player_role_to_type(player_role):
 
 def from_player_type_to_role(player_type):
     '''
-    Convert a player type to its respective player role
+    Convert a player type to its respective player role string
     '''
     return player_type.value.capitalize()
 
 
 def other_player(player_type):
     '''
-    Return other player
+    Return other player type
     '''
     return (
         TablutPlayerType.WHITE if player_type == TablutPlayerType.BLACK

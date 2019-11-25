@@ -17,7 +17,8 @@ class Connector(Process):
     between player and server
     '''
 
-    def __init__(self, ip_addr, port, player_name, state_queue, action_queue, is_black=False):
+    def __init__(self, ip_addr, port, player_name,
+                 state_queue, action_queue, is_black=False):
         Process.__init__(self, name='ConnectorProcess')
         self.ip_addr = ip_addr
         self.port = port
@@ -122,7 +123,7 @@ class Connector(Process):
 
 def connect(ip_addr, port):
     '''
-    Bind a TCP socket to(ip_addr, port)
+    Bind a TCP socket to (ip_addr, port)
     '''
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)

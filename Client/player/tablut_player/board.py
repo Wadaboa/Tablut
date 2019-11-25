@@ -2,6 +2,7 @@
 Board game representations module
 '''
 
+
 import tablut_player.game_utils as gutils
 import tablut_player.config as conf
 from tablut_player.game_utils import (
@@ -61,7 +62,6 @@ class TablutBoard():
         TablutBoardPosition.create(row=6, col=8),
         TablutBoardPosition.create(row=7, col=8)
     }
-
     OUTER_CORNERS = {
         TablutBoardPosition.create(row=1, col=1),
         TablutBoardPosition.create(row=1, col=7),
@@ -206,11 +206,11 @@ class TablutBoard():
         pawn position
         '''
         unreachables = set(unallowed_positions)
-        for u in unallowed_positions:
-            pawn_direction = cls._pawn_direction(pawn_coords, u)
+        for pos in unallowed_positions:
+            pawn_direction = cls._pawn_direction(pawn_coords, pos)
             if pawn_direction is not None:
                 unreachables.update(
-                    cls._blocked_positions(u, pawn_direction)
+                    cls._blocked_positions(pos, pawn_direction)
                 )
         return moves.difference(unreachables)
 
@@ -419,6 +419,23 @@ class TablutBoard():
         Return the number of enemy pawns, camps and castle around the king
         and the remaining positions to kill him
         '''
+
+        def is_black(neighbor):
+            '''
+            Check if the given neighbor is a black pawn, an outer camp
+            or the castle
+            '''
+            return (
+                neighbor in cls.OUTER_CAMPS or neighbor == cls.CASTLE or
+                neighbor in pawns[TablutPawnType.BLACK]
+            )
+
+        def is_white(neighbor):
+            '''
+            Check if the given neighbor is a white pawn
+            '''
+            return neighbor in pawns[TablutPawnType.WHITE]
+
         king = cls.king_position(pawns)
         left_pawn = TablutBoardPosition.create(row=king.row, col=king.col - 1)
         right_pawn = TablutBoardPosition.create(row=king.row, col=king.col + 1)
@@ -428,15 +445,6 @@ class TablutBoard():
         free_neighbors = []
         killer_neighbors = []
         killers = 0
-
-        def is_black(n): return (
-            n in cls.OUTER_CAMPS or n == cls.CASTLE or
-            n in pawns[TablutPawnType.BLACK]
-        )
-
-        def is_white(n): return (
-            n in pawns[TablutPawnType.WHITE]
-        )
         for neighbor_one, neighbor_two in king_neighbors:
             if is_black(neighbor_one) and is_black(neighbor_two):
                 killers += 2
@@ -469,9 +477,9 @@ class TablutBoard():
             dead = set()
             pawns = set()
             pawns.update(my_pawns, cls.OUTER_CAMPS, {cls.CASTLE})
-            for op, tp in zip(one_neighbors, two_neighbors):
-                if op in enemy_pawns and tp in pawns:
-                    dead.add(op)
+            for one_pawn, two_pawn in zip(one_neighbors, two_neighbors):
+                if one_pawn in enemy_pawns and two_pawn in pawns:
+                    dead.add(one_pawn)
             return dead
 
         def king_capture(pawns, enemy_pawns, my_pawns):
@@ -519,6 +527,9 @@ class TablutBoardGUI(QtWidgets.QGraphicsScene):
         self.installEventFilter(self)
 
     def eventFilter(self, obj, event):
+        '''
+        Avoid mouse click events
+        '''
         if event.type() in (QEvent.MouseButtonPress,
                             QEvent.MouseButtonDblClick):
             return False

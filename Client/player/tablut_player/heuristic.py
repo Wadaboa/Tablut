@@ -2,6 +2,7 @@
 Tablut states evaluation functions
 '''
 
+
 import random
 
 import tablut_player.utils as utils
@@ -16,6 +17,27 @@ from tablut_player.game_utils import (
 )
 
 
+def heuristic_pov(state, pov, value):
+    '''
+    Given an heuristic evaluation and a player on top of which the evaluation
+    got computed, return the correct value
+    '''
+    return value if gutils.other_player(state.to_move) == pov else -value
+
+
+def get_moves(state):
+    '''
+    Return legal white and black moves from the given state
+    '''
+    if state.to_move == TPlayerType.WHITE:
+        return (
+            state.moves, TablutGame.player_moves(state.pawns, TPlayerType.BLACK)
+        )
+    return (
+        TablutGame.player_moves(state.pawns, TPlayerType.WHITE), state.moves
+    )
+
+
 def potential_kills(state):
     '''
     Return a value representing the number of potential player pawns killers,
@@ -24,15 +46,14 @@ def potential_kills(state):
 
     def count_dead(moves, potential_killers, potential_victims):
         count = 0
-        for _, to in moves:
-            killables = TablutBoard.orthogonal_k_neighbors(to, k=1)
-            killers = TablutBoard.orthogonal_k_neighbors(to, k=2)
+        for _, to_move in moves:
+            killables = TablutBoard.orthogonal_k_neighbors(to_move, k=1)
+            killers = TablutBoard.orthogonal_k_neighbors(to_move, k=2)
             for victim, killer in zip(killables, killers):
                 if victim in potential_victims and killer in potential_killers:
                     count += 1
         return count
 
-    player = gutils.other_player(state.to_move)
     white_pawns = state.pawns[TPawnType.WHITE]
     black_pawns = state.pawns[TPawnType.BLACK]
     if state.to_move == TPlayerType.WHITE:
@@ -60,9 +81,7 @@ def potential_kills(state):
         value = -1 - (1 / value)
     elif value > 0:
         value = 1 - (1 / value)
-    if player == TPlayerType.BLACK:
-        value = -value
-    return value
+    return heuristic_pov(state, TPlayerType.WHITE, value)
 
 
 def king_moves_to_goals(state):
@@ -77,7 +96,6 @@ def king_moves_to_goals(state):
     distances = [
         dis for dis in GOALS_DISTANCES.values() if dis < MAX_KING_MOVES
     ]
-    player = gutils.other_player(state.to_move)
     value = -0.3
     check = False
     if distances.count(1) > 1:
@@ -94,9 +112,7 @@ def king_moves_to_goals(state):
             if value + tmp > upper_bound:
                 break
             value += tmp
-    if player == TPlayerType.BLACK:
-        value = -value
-    return value
+    return heuristic_pov(state, TPlayerType.WHITE, value)
 
 
 def black_blocking_chains(state):
@@ -104,7 +120,6 @@ def black_blocking_chains(state):
     Return a value representing the number of chained black pawns,
     that are blocking goal positions, in range [-1, 1]
     '''
-    player = gutils.other_player(state.to_move)
     chains = black_chains(state)
     value = 0
     weights = [4/10, 6/10, 8/10, 9/10]
@@ -114,9 +129,7 @@ def black_blocking_chains(state):
             state, chain)
         if corners_found == 0:
             value = -0.9 + (1 / 12)*(blacks_found)
-            if player == TPlayerType.WHITE:
-                value = -value
-            return value
+            return heuristic_pov(state, TPlayerType.BLACK, value)
         chain_value = corners_found * weights[corners_found-1]
         if whites_found > 1:
             chain_value /= whites_found
@@ -126,9 +139,7 @@ def black_blocking_chains(state):
 
     if value > upper_bound:
         value = upper_bound
-    if player == TPlayerType.WHITE:
-        value = -value
-    return value
+    return heuristic_pov(state, TPlayerType.BLACK, value)
 
 
 def blocked_chain_pawns(state, chain):
@@ -257,7 +268,6 @@ def blocked_goals(state):
     for each corner, in range [-1, 1]
     '''
     value = 0.0
-    player = gutils.other_player(state.to_move)
     black_pawns = state.pawns[TPawnType.BLACK]
     white_pawns = state.pawns[TPawnType.WHITE]
     free_goals = {
@@ -267,7 +277,8 @@ def blocked_goals(state):
         if pos in black_pawns:
             value -= (1 / 9)
             free_goals.difference_update(
-                TablutBoard.unique_orthogonal_k_neighbors(pos))
+                TablutBoard.unique_orthogonal_k_neighbors(pos)
+            )
         elif pos in white_pawns:
             value -= (1 / 16)
 
@@ -277,9 +288,7 @@ def blocked_goals(state):
         elif goal in white_pawns:
             value -= (1 / 20)
 
-    if player == TPlayerType.BLACK:
-        value = -value
-    return value
+    return heuristic_pov(state, TPlayerType.WHITE, value)
 
 
 def king_killers(state):
@@ -288,7 +297,6 @@ def king_killers(state):
     camps and castle around the king, in range [-1, 1]
     '''
     value = 0
-    player = gutils.other_player(state.to_move)
     black_moves = state.moves
     if state.to_move == TPlayerType.WHITE:
         black_moves = TablutGame.player_moves(
@@ -328,9 +336,7 @@ def king_killers(state):
     if value == 0:
         for val, weight in zip(values, weights):
             value += val*weight
-    if player == TPlayerType.WHITE:
-        value = -value
-    return value
+    return heuristic_pov(state, TPlayerType.BLACK, value)
 
 
 def _reachable_positions(positions, moves):
@@ -354,14 +360,11 @@ def piece_difference(state):
     '''
     Return an evaluation of the pawn difference, in range [-1, 1]
     '''
-    player = gutils.other_player(state.to_move)
-    diff = (
+    value = (
         ((1 / 2) * len(state.pawns[TPawnType.BLACK])) -
         len(state.pawns[TPawnType.WHITE])
-    )
-    if player == TPlayerType.WHITE:
-        diff = -diff
-    return diff * (1 / 8)
+    ) * (1 / 8)
+    return heuristic_pov(state, TPlayerType.BLACK, value)
 
 
 def pawns_in_corners(state):
