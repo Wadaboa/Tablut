@@ -88,7 +88,7 @@ def entry():
         del gui_view
         del gui_scene
     elif conf.TRAIN:
-        gen.genetic_algorithm(ngen=3, pop_number=2)
+        gen.genetic_algorithm(ngen=2, pop_number=2)
     else:
         thr = threading.Thread(target=play, name='GameManager')
         thr.start()
@@ -100,11 +100,19 @@ def autoplay(gui):
     game = TablutGame()
     game_state = game.initial
     update_gui(gui, game_state.pawns)
+    white_weights = [16.07194263300078, 12.275958111700538, 0.3978514539344613,
+                     2.6571938112304516, 17.824797732893646, 3.7728157010848062]
+    black_weights = [8.351803904293089, 8.308032190516075, 8.807172663229066,
+                     3.612796352189498, 0.3889153986708882, 9.384952829601382]
     black_ttable = strat.TT()
     white_ttable = strat.TT()
     while not game.terminal_test(game_state):
+        if game.turn % 10 == 0:
+            black_ttable.clear()
+            white_ttable.clear()
         game.inc_turn()
         print(f'Turn {game.turn}')
+        heu.set_heuristic_weights(white_weights)
         white_move = get_move(
             game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD, tt=white_ttable
         )
@@ -112,6 +120,7 @@ def autoplay(gui):
         update_gui(gui, game_state.pawns)
         if game.terminal_test(game_state):
             break
+        heu.set_heuristic_weights(black_weights)
         black_move = get_move(
             game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
             prev_move=white_move, tt=black_ttable
@@ -125,6 +134,11 @@ def autoplay(gui):
     )
     print(winner)
     print('-' * 50)
+    black_ttable.clear()
+    white_ttable.clear()
+    del black_ttable
+    del white_ttable
+    del game
 
 
 def play():

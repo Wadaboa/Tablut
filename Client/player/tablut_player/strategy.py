@@ -6,7 +6,6 @@ Tablut players search strategies
 import math
 import time
 import random
-from enum import Enum
 
 import tablut_player.game_utils as gutils
 import tablut_player.utils as utils
@@ -297,7 +296,7 @@ def get_move(game, state, timeout, max_depth=4, prev_move=None, tt=None):
     if game.turn < 2:
         move = first_move(state, prev_move)
     else:
-        move = alphabeta_cutoff_search(state, game, timeout, 0, tt)
+        move = alphabeta_cutoff_search(state, game, timeout, 2, tt)
         # print(move)
 
     # print(value)

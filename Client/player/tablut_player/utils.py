@@ -51,5 +51,8 @@ def get_rand(seq):
 
 
 def get_rand_double(min_val, max_val):
-    random.seed(time.time())
     return random.uniform(min_val, max_val)
+
+
+def get_rand_int(min_val, max_val):
+    return random.randrange(min_val, max_val)

@@ -3,7 +3,11 @@ Tablut states evaluation functions weights computation
 '''
 
 import random
+import time
+import bisect
 from multiprocessing import Process, Array
+from datetime import datetime
+
 
 import tablut_player.utils as utils
 import tablut_player.config as conf
@@ -44,27 +48,29 @@ class TablutPlayer():
 
 
 def tournament(population):
-    results = Array('i', [0] * len(population) * (len(population) - 1))
+    results = Array('i', [0] * len(population) * len(population))
+    game_num = 0
+    processes = []
+    for player_one in population:
+        for player_two in population:
+            p = Process(
+                target=play,
+                args=(player_one, player_two, results, game_num)
+            )
+            p.start()
+            processes.append(p)
+            game_num += 1
+    time.sleep(3)
+    for p in processes:
+        p.join()
     game_num = 0
     for player_one in population:
         for player_two in population:
-            if player_one != player_two:
-                p = Process(
-                    target=play,
-                    args=(player_one, player_two, results, game_num)
-                )
-                p.start()
-                game_num += 1
-    p.join()
-    game_num = 0
-    for player_one in population:
-        for player_two in population:
-            if player_one != player_two:
-                if results[game_num] == 1:
-                    player_one.white_wins += 1
-                elif results[game_num] == -1:
-                    player_two.black_wins += 1
-                game_num += 1
+            if results[game_num] == 1:
+                player_one.white_wins += 1
+            elif results[game_num] == -1:
+                player_two.black_wins += 1
+            game_num += 1
     return population
 
 
@@ -74,6 +80,9 @@ def play(player_one, player_two, results, game_num, max_turns=50):
     black_ttable = strat.TT()
     white_ttable = strat.TT()
     while not game.terminal_test(game_state) and game.turn < max_turns:
+        if game.turn % 10 == 0:
+            black_ttable.clear()
+            white_ttable.clear()
         game.inc_turn()
         heu.set_heuristic_weights(player_one.weights)
         white_move = strat.get_move(
@@ -106,25 +115,54 @@ def find_best_player(player):
     return player.white_wins + player.black_wins
 
 
-def genetic_algorithm(ngen=1000, pop_number=100, gene_pool=HEURISTIC_WEIGHTS_RANGE, num_weights=len(heu.HEURISTIC_WEIGHTS), f_thresh=90, pmut=0.1):
+def genetic_algorithm(ngen=10, pop_number=10, gene_pool=HEURISTIC_WEIGHTS_RANGE, num_weights=len(heu.HEURISTIC_WEIGHTS), f_thresh=19, pmut=0.3):
+    now = datetime.now()
+    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+    file_string = "train-"+now.strftime("%d_%m_%y-%H_%M")+".txt"
+    file = open(f"train/{file_string}", "w", buffering=1)
+    file.write(f'\n\tTRAINING - {dt_string}\n\n')
+    print(f'\n\tTRAINING - {dt_string}\n\n')
+
     population = init_population(
         pop_number=pop_number,
         gene_pool=gene_pool,
         num_weights=num_weights
     )
-    file = open("train.txt", "w", buffering=1)
-    file.write('TRAINING')
+
+    file.write("\tStarting Population\n")
+    print("\tStarting Population\n")
+    for player in population:
+        file.write(str(player.weights)+"\n")
+        print(player.weights)
+    file.write("\n")
+
     for i in range(ngen):
-        file.write(str(population))
         population = tournament(population)
-        print(f'END TOURNAMENT {i}')
+
+        print(f'\n\tEnd tournament {i}\n')
+        file.write(f'\n\tEnd tournament {i}\n')
+        for player in population:
+            file.write(str(player))
+            print(player)
+
+        if isinstance(population, TablutPlayer):
+            print(f'\n\n\tBEST PLAYER\n')
+            print(population)
+            file.write('\n\n\tBEST PLAYER\n')
+            file.write(str(population))
+            break
+
         population = next_generation(
             population, find_best_player, gene_pool, f_thresh, pmut
         )
-        if isinstance(population, TablutPlayer):
-            break
-    file.write('\nLAST POPULATION\n')
-    file.write(str(population))
+
+    if isinstance(population, list):
+        print(f'\n\n\tLAST POPULATION\n')
+        file.write('\n\n\tLAST POPULATION\n')
+        for player in population:
+            file.write(str(player))
+            print(player)
+
     file.close()
     return population
 
@@ -134,8 +172,12 @@ def next_generation(population, fitness_fn, gene_pool, f_thresh, pmut):
     if fittest_individual:
         return fittest_individual
     population = [
-        mutate(recombine_uniform(*select(2, population, fitness_fn)), gene_pool, pmut)
-        for i in range(len(population))
+        mutate(
+            recombine_uniform(*weighted_select(2, population, fitness_fn)),
+            gene_pool,
+            pmut
+        )
+        for _ in range(len(population))
     ]
     return population
 
@@ -152,11 +194,14 @@ def fitness_threshold(fitness_fn, f_thresh, population):
 
 
 def init_population(pop_number, gene_pool, num_weights):
-    """Initializes population for genetic algorithm
+    '''
+    Initializes population for genetic algorithm
     pop_number  :  Number of individuals in population
     gene_pool   :  List of possible values for individuals
-    state_length:  The length of each individual"""
+    num_weights:  Number of weights to set
+    '''
     population = []
+    random.seed(time.time())
     for _ in range(pop_number):
         new_weights = [
             utils.get_rand_double(gene_pool[0], gene_pool[-1])
@@ -166,7 +211,35 @@ def init_population(pop_number, gene_pool, num_weights):
     return population
 
 
-def select(r, population, fitness_fn):
+def weighted_select(r, population, fitness_fn):
+    fitnesses = map(fitness_fn, population)
+    return weighted_sample_with_replacement(r, population, fitnesses)
+
+
+def weighted_sample_with_replacement(n, seq, weights):
+    '''
+    Pick n samples from seq at random, with replacement, with the
+    probability of each element in proportion to its corresponding
+    weight.
+    '''
+    sampler = weighted_sampler(seq, weights)
+    return [sampler() for _ in range(n)]
+
+
+def weighted_sampler(seq, weights):
+    '''
+    Return a random-sample function that picks from seq weighted by weights.
+    '''
+    totals = []
+    for w in weights:
+        totals.append(w + totals[-1] if totals else w)
+    index = bisect.bisect(totals, random.uniform(0, totals[-1]))
+    return lambda: seq[
+        index if index < len(seq) else utils.get_rand_int(0, len(seq))
+    ]
+
+
+def simple_select(r, population, fitness_fn):
     fitnesses = list(map(fitness_fn, population))
     results = list(zip(population, fitnesses))
     results.sort(key=lambda tup: tup[1])
@@ -197,6 +270,7 @@ def mutate(x, gene_pool, pmut):
         return x
 
     c = random.randrange(0, len(x.weights))
+    random.seed(time.time())
     new_gene = utils.get_rand_double(gene_pool[0], gene_pool[-1])
     new_weights = x.weights[:c] + [new_gene] + x.weights[c + 1:]
     return TablutPlayer(weights=new_weights)
