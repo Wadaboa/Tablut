@@ -157,18 +157,29 @@ class TablutGame(Game):
         '''
         Check if there is a draw, based on the number of repeated states
         '''
-        first = state.old_state
-        if first is None:
-            return False
-        second = first.old_state
-        if second is None:
-            return False
-        old = second
-        for i in range(2, cls.MAX_REPEATED_STATES):
-            old = old.old_state
-            if old is None or (old is not None and
-                               ((i % 2 == 0 and old != first) or
-                                ((i % 2 != 0 and old != second)))):
+        pawn_difference = {}
+        first = state
+        second = state.old_state
+        for i in range(0, int(cls.MAX_REPEATED_STATES)):
+            for pawn_type in TablutPawnType.values():
+                if second is None:
+                    return False
+                if i < cls.MAX_REPEATED_STATES / 2:
+                    pawn_difference.setdefault(pawn_type, set()).update(
+                        first.pawns[pawn_type].difference(
+                            second.pawns[pawn_type]
+                        )
+                    )
+                else:
+                    pawn_difference[pawn_type].difference_update(
+                        second.pawns[pawn_type].difference(
+                            first.pawns[pawn_type]
+                        )
+                    )
+            first = second
+            second = second.old_state
+        for pawn_diff in pawn_difference.values():
+            if len(pawn_diff) > 0:
                 return False
         return True
 
