@@ -7,22 +7,39 @@ import argparse
 import sys
 import threading
 import traceback
-import time
-import queue
+from multiprocessing import JoinableQueue
 
-from PyQt5 import QtCore, QtWidgets
-from multiprocessing import Process, JoinableQueue
+from PyQt5 import QtWidgets
 
 import tablut_player.config as conf
 import tablut_player.game_utils as gutils
 import tablut_player.strategy as strat
-import tablut_player.utils as utils
-import tablut_player.heuristic as heu
 import tablut_player.genetic as gen
-from tablut_player.board import TablutBoardGUI, TablutBoard
+from tablut_player.board import TablutBoardGUI
 from tablut_player.game import TablutGame
 from tablut_player.strategy import get_move
-from tablut_player.connector import (Connector, is_socket_valid)
+from tablut_player.connector import Connector
+
+
+PLAYERS = {
+    'Random': strat.random_player,
+    'Minimax': strat.minimax_player,
+    'Negamax': strat.negamax_player,
+    'Negascout': strat.negascout_player,
+    'MonteCarlo': strat.monte_carlo_player
+}
+
+
+def required_length(nmin, nmax):
+    class RequiredLength(argparse.Action):
+        def __call__(self, parser, args, values, option_string=None):
+            if not nmin <= len(values) <= nmax:
+                msg = (
+                    f'{self.dest} requires between {nmin} and {nmax} arguments'
+                )
+                raise argparse.ArgumentTypeError(msg)
+            setattr(args, self.dest, values)
+    return RequiredLength
 
 
 def parse_args():
@@ -50,24 +67,43 @@ def parse_args():
     )
     parser.add_argument(
         '-a', '--autoplay', dest='autoplay', action='store_true',
-        help="avoid connecting to the server and play locally with both roles"
+        help="avoid connecting to the server"
     )
     parser.add_argument(
         '-g', '--genetic', dest='genetic', action='store_true',
         help="train tablut player using a genetic algorithm"
     )
+    parser.add_argument(
+        '-p', '--players', dest='players', action=required_length(1, 2),
+        choices=PLAYERS.keys(), nargs='+', default=['Minimax'],
+        help="choose the players you want to play with"
+    )
     args = parser.parse_args()
     conf.MOVE_TIMEOUT = int(args.timeout)
     conf.SERVER_IP = args.server_ip
     conf.DEBUG = args.debug
-    conf.AUTOPLAY = args.autoplay
     conf.TRAIN = args.genetic
+    conf.AUTOPLAY = args.autoplay
+    conf.WHITE_PLAYER = PLAYERS[args.players[0]]
+    conf.MY_PLAYER = conf.WHITE_PLAYER
+    conf.BLACK_PLAYER = (
+        PLAYERS[args.players[1]] if len(args.players) > 1 else conf.WHITE_PLAYER
+    )
     conf.PLAYER_ROLE = args.role
     if args.role == conf.BLACK_ROLE:
         conf.PLAYER_SERVER_PORT = conf.BLACK_SERVER_PORT
+        conf.BLACK_PLAYER = PLAYERS[args.players[0]]
+        conf.MY_PLAYER = conf.BLACK_PLAYER
+        conf.WHITE_PLAYER = (
+            PLAYERS[args.players[1]] if len(
+                args.players) > 1 else conf.WHITE_PLAYER
+        )
 
 
 def entry():
+    '''
+    Tablut package entry point
+    '''
     parse_args()
     strat.init_openings()
     if conf.AUTOPLAY:
@@ -95,55 +131,46 @@ def entry():
 
 
 def autoplay(gui):
+    '''
+    Play a game with the specified players and view it in the given GUI
+    '''
     game = TablutGame()
     game_state = game.initial
     update_gui(gui, game_state.pawns)
-    '''
-    white_weights = [16.07194263300078, 12.275958111700538, 0.3978514539344613,
-                     2.6571938112304516, 17.824797732893646, 3.7728157010848062,
-                     1]
-    black_weights = [8.351803904293089, 8.308032190516075, 8.807172663229066,
-                     3.612796352189498, 0.3889153986708882, 9.384952829601382,
-                     1]
-    '''
-    black_ttable = strat.TT()
     white_ttable = strat.TT()
-
+    black_ttable = strat.TT()
     while not game.terminal_test(game_state):
         if game.turn % 10 == 0:
             black_ttable.clear()
             white_ttable.clear()
         game.inc_turn()
         print(f'Turn {game.turn}')
-        # heu.set_heuristic_weights(white_weights)
         white_move = get_move(
-            game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD, tt=white_ttable
+            game, game_state, conf.WHITE_PLAYER, prev_move=None,
+            timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
+            max_depth=4, tt=white_ttable, max_it=1000
         )
         game_state = game.result(game_state, white_move)
         update_gui(gui, game_state.pawns)
         if game.terminal_test(game_state):
             break
-        # heu.set_heuristic_weights(black_weights)
         black_move = get_move(
-            game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
-            prev_move=white_move, tt=black_ttable
+            game, game_state, conf.BLACK_PLAYER, prev_move=None,
+            timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
+            max_depth=4, tt=black_ttable, max_it=1000
         )
         game_state = game.result(game_state, black_move)
         update_gui(gui, game_state.pawns)
-        # game.display(game_state)
     winner = game.utility(
         game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
     )
-    print(winner)
-    print('-' * 50)
-    black_ttable.clear()
-    white_ttable.clear()
-    del black_ttable
-    del white_ttable
-    del game
+    print('WIN' if winner == 1 else 'LOSE' if winner == -1 else 'DRAW')
 
 
 def play():
+    '''
+    Play a game connecting to the server
+    '''
     game = TablutGame()
     game_state = game.initial
     ttable = strat.TT()
@@ -159,10 +186,9 @@ def play():
             gutils.is_black(conf.PLAYER_ROLE)
         )
         conn.start()
-        # Get initial board state
         get_state(state_queue)
         if gutils.is_black(conf.PLAYER_ROLE):
-            pawns, _ = get_state(state_queue)  # Get enemy move
+            pawns, _ = get_state(state_queue)
             enemy_move = gutils.from_pawns_to_move(
                 game_state.pawns, pawns, game_state.to_move
             )
@@ -170,28 +196,22 @@ def play():
         while not game.terminal_test(game_state):
             game.inc_turn()
             print(f'Turn {game.turn}')
-            time.sleep(10)
-            my_move = get_move(game, game_state, conf.MOVE_TIMEOUT -
-                               conf.MOVE_TIME_OVERHEAD, 4, enemy_move, ttable)
+            my_move = get_move(
+                game, game_state, conf.MY_PLAYER, prev_move=None,
+                timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
+                max_depth=4, tt=ttable, max_it=1000
+            )
             game_state = game.result(game_state, my_move)
-
-            game.display(game_state)
-            print(f'My move: {my_move}')
-
             action_queue.put((my_move, game_state.to_move))
             action_queue.join()
-            get_state(state_queue)  # Get my move
+            get_state(state_queue)
             if game.terminal_test(game_state):
                 break
-
-            pawns, _ = get_state(state_queue)  # Get enemy move
+            pawns, _ = get_state(state_queue)
             enemy_move = gutils.from_pawns_to_move(
                 game_state.pawns, pawns, game_state.to_move
             )
             game_state = game.result(game_state, enemy_move)
-
-            game.display(game_state)
-            print(f'Enemy move: {enemy_move}')
     except Exception:
         print(traceback.format_exc())
     finally:
@@ -199,8 +219,7 @@ def play():
     winner = game.utility(
         game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
     )
-    print(winner)
-    print('-' * 50)
+    print('WIN' if winner == 1 else 'LOSE' if winner == -1 else 'DRAW')
 
 
 def update_gui(gui, pawns):
@@ -248,115 +267,6 @@ def test_state():
             gutils.TablutBoardPosition.create(0, 4),
             gutils.TablutBoardPosition.create(4, 1),
             gutils.TablutBoardPosition.create(0, 2)
-        },
-        gutils.TablutPawnType.KING: {gutils.TablutBoardPosition.create(4, 4)}
-    }
-    player = gutils.TablutPlayerType.WHITE
-    return gutils.TablutGameState(
-        player,
-        0,
-        initial_pawns,
-        moves=TablutGame.player_moves(initial_pawns, player)
-    )
-
-
-def test_state_2():
-    '''
-    State used to test the game
-    '''
-    initial_pawns = {
-        gutils.TablutPawnType.WHITE: {
-            gutils.TablutBoardPosition.create(2, 4),
-            gutils.TablutBoardPosition.create(3, 4),
-            gutils.TablutBoardPosition.create(4, 5),
-            gutils.TablutBoardPosition.create(4, 6),
-            gutils.TablutBoardPosition.create(5, 6)
-        },
-        gutils.TablutPawnType.BLACK: {
-            gutils.TablutBoardPosition.create(0, 4),
-            gutils.TablutBoardPosition.create(0, 5),
-            gutils.TablutBoardPosition.create(1, 4),
-            gutils.TablutBoardPosition.create(3, 0),
-            gutils.TablutBoardPosition.create(4, 0),
-            gutils.TablutBoardPosition.create(4, 1),
-            gutils.TablutBoardPosition.create(4, 3),
-            gutils.TablutBoardPosition.create(4, 7),
-            gutils.TablutBoardPosition.create(4, 8),
-            gutils.TablutBoardPosition.create(3, 8),
-            gutils.TablutBoardPosition.create(6, 8),
-            gutils.TablutBoardPosition.create(7, 8),
-            gutils.TablutBoardPosition.create(6, 3)
-        },
-        gutils.TablutPawnType.KING: {gutils.TablutBoardPosition.create(5, 4)}
-    }
-    player = gutils.TablutPlayerType.WHITE
-    return gutils.TablutGameState(
-        player,
-        0,
-        initial_pawns,
-        moves=TablutGame.player_moves(initial_pawns, player)
-    )
-
-
-def test_state_3():
-    '''
-    State used to test the game
-    '''
-    initial_pawns = {
-        gutils.TablutPawnType.WHITE: {
-            gutils.TablutBoardPosition.create(2, 4),
-            gutils.TablutBoardPosition.create(3, 6),
-            gutils.TablutBoardPosition.create(4, 2),
-            gutils.TablutBoardPosition.create(4, 5),
-            gutils.TablutBoardPosition.create(4, 6),
-            gutils.TablutBoardPosition.create(6, 3),
-            gutils.TablutBoardPosition.create(6, 6)
-        },
-        gutils.TablutPawnType.BLACK: {
-            gutils.TablutBoardPosition.create(0, 4),
-            gutils.TablutBoardPosition.create(1, 1),
-            gutils.TablutBoardPosition.create(3, 5),
-            gutils.TablutBoardPosition.create(3, 8),
-            gutils.TablutBoardPosition.create(4, 0),
-            gutils.TablutBoardPosition.create(4, 8),
-            gutils.TablutBoardPosition.create(5, 0),
-            gutils.TablutBoardPosition.create(5, 4),
-            gutils.TablutBoardPosition.create(5, 8),
-            gutils.TablutBoardPosition.create(7, 7),
-            gutils.TablutBoardPosition.create(8, 1),
-            gutils.TablutBoardPosition.create(8, 4),
-            gutils.TablutBoardPosition.create(8, 5)
-        },
-        gutils.TablutPawnType.KING: {gutils.TablutBoardPosition.create(3, 2)}
-    }
-    player = gutils.TablutPlayerType.BLACK
-    return gutils.TablutGameState(
-        player,
-        0,
-        initial_pawns,
-        moves=TablutGame.player_moves(initial_pawns, player)
-    )
-
-
-def test_state_4():
-    '''
-    State used to test the game
-    '''
-    initial_pawns = {
-        gutils.TablutPawnType.WHITE: {
-            gutils.TablutBoardPosition.create(7, 1),
-        },
-        gutils.TablutPawnType.BLACK: {
-            gutils.TablutBoardPosition.create(5, 2),
-            gutils.TablutBoardPosition.create(6, 3),
-            gutils.TablutBoardPosition.create(6, 1),
-            gutils.TablutBoardPosition.create(7, 2),
-            gutils.TablutBoardPosition.create(6, 5),
-            gutils.TablutBoardPosition.create(5, 6),
-            gutils.TablutBoardPosition.create(7, 4),
-            gutils.TablutBoardPosition.create(4, 3),
-            gutils.TablutBoardPosition.create(3, 4),
-            gutils.TablutBoardPosition.create(4, 5),
         },
         gutils.TablutPawnType.KING: {gutils.TablutBoardPosition.create(4, 4)}
     }

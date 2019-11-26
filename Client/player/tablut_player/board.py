@@ -3,6 +3,10 @@ Board game representations module
 '''
 
 
+from PyQt5 import QtWidgets
+from PyQt5.QtCore import QEvent, QRectF, Qt
+from PyQt5.QtGui import QColor, QPen
+
 import tablut_player.game_utils as gutils
 import tablut_player.config as conf
 from tablut_player.game_utils import (
@@ -11,10 +15,6 @@ from tablut_player.game_utils import (
     TablutPawnType,
     TablutPlayerType
 )
-
-from PyQt5 import QtWidgets
-from PyQt5.QtCore import QEvent, QRectF, Qt
-from PyQt5.QtGui import QColor, QPen
 
 
 class TablutBoard():

@@ -18,19 +18,20 @@ from tablut_player.game import TablutGame
 
 HEURISTICS_WEIGHTS_RANGE = [0, 20]
 
-LOGGER = logging.getLogger('GeneticLogger')
-LOGGER_FILE_HANDLER = logging.FileHandler(
-    f'train/train-{datetime.now().strftime("%d_%m_%y-%H_%M")}.log'
-)
-LOGGER_STREAM_HANDLER = logging.StreamHandler()
-LOGGER_FORMATTER = logging.Formatter(
-    '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
-)
-LOGGER_FILE_HANDLER.setFormatter(LOGGER_FORMATTER)
-LOGGER_STREAM_HANDLER.setFormatter(LOGGER_FORMATTER)
-LOGGER.addHandler(LOGGER_FILE_HANDLER)
-LOGGER.addHandler(LOGGER_STREAM_HANDLER)
-LOGGER.setLevel(logging.INFO)
+if conf.TRAIN:
+    LOGGER = logging.getLogger('GeneticLogger')
+    LOGGER_FILE_HANDLER = logging.FileHandler(
+        f'train/train-{datetime.now().strftime("%d_%m_%y-%H_%M")}.log'
+    )
+    LOGGER_STREAM_HANDLER = logging.StreamHandler()
+    LOGGER_FORMATTER = logging.Formatter(
+        '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
+    )
+    LOGGER_FILE_HANDLER.setFormatter(LOGGER_FORMATTER)
+    LOGGER_STREAM_HANDLER.setFormatter(LOGGER_FORMATTER)
+    LOGGER.addHandler(LOGGER_FILE_HANDLER)
+    LOGGER.addHandler(LOGGER_STREAM_HANDLER)
+    LOGGER.setLevel(logging.INFO)
 
 
 class TablutPlayer():

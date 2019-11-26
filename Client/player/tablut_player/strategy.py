@@ -5,7 +5,6 @@ Tablut players search strategies
 
 import math
 import time
-import random
 
 import tablut_player.game_utils as gutils
 import tablut_player.utils as utils
@@ -13,6 +12,9 @@ import tablut_player.heuristic as heu
 from tablut_player.utils import INF
 from tablut_player.game_utils import TablutBoardPosition as TBPos
 
+
+# ______________________________________________________________________________
+# Opening moves
 
 WHITE_OPENINGS = [
     (TBPos.create(row=4, col=2), TBPos.create(row=7, col=2)),
@@ -43,272 +45,11 @@ BLACK_OPENINGS = {
     ]
 }
 
-# ______________________________________________________________________________
-# Alpha-Beta tree search
 
-
-class TTEntry:
-
-    def __init__(self, key, moves, value, depth):
-        self.key = key
-        self.moves = moves
-        self.value = value
-        self.depth = depth
-
-    def __repr__(self):
-        return (
-            f'Key: {self.key}\n'
-            f'Moves: {self.moves}\n'
-            f'Value: {self.value}\n'
-            f'Depth: {self.depth}'
-        )
-
-
-class TT:
-
-    def __init__(self):
-        self.table = {}
-
-    def get_entry(self, state):
-        hash_value = hash(state)
-        entry = self.table.get(hash_value)
-        if entry is not None and entry.key == hash_value:
-            return entry
-        return None
-
-    def get_moves(self, state):
-        entry = self.get_entry(state)
-        return entry.moves if entry is not None else None
-
-    def get_value(self, state):
-        entry = self.get_entry(state)
-        return entry.value if entry is not None else None
-
-    def store_entry(self, entry):
-        self.table[entry.key] = entry
-
-    def clear(self):
-        self.table = {}
-
-
-def alphabeta_cutoff_search(state, game, timeout, d=2, tt=None):
-    """Search game to determine best action; use alpha-beta pruning.
-    This version cuts off search and uses an evaluation function."""
-
-    # Functions used by alphabeta
-    def max_value(state, alpha, beta, depth):
-        entry = tt.get_entry(state)
-        if entry is not None and entry.moves is not None:
-            state.moves = entry.moves
-        else:
-            state.moves = game.player_moves(state.pawns, state.to_move)
-
-        moves = state.moves
-
-        if alphabeta_cutoff(game, state, depth, start_time, timeout):
-            if entry is not None and entry.depth == depth:
-                value = entry.value
-            else:
-                value = heu.heuristic(state)
-                entry = TTEntry(hash(state), moves, value, depth)
-                tt.store_entry(entry)
-            # print(value)
-            return value
-        v = -INF
-        for move in moves:
-            value = min_value(game.result(state, move, compute_moves=False),
-                              alpha, beta, depth - 1)
-            if value > v:
-                v = value
-                moves.remove(move)
-                moves.insert(0, move)
-            if v >= beta:
-                entry = TTEntry(hash(state), moves, v, depth)
-                tt.store_entry(entry)
-                return v
-            alpha = max(alpha, v)
-        entry = TTEntry(hash(state), moves, v, depth)
-        tt.store_entry(entry)
-        return v
-
-    def min_value(state, alpha, beta, depth):
-        entry = tt.get_entry(state)
-        if entry is not None and entry.moves is not None:
-            state.moves = entry.moves
-        else:
-            state.moves = game.player_moves(state.pawns, state.to_move)
-
-        moves = state.moves
-
-        if alphabeta_cutoff(game, state, depth, start_time, timeout):
-            if entry is not None and entry.depth == depth:
-                value = entry.value
-            else:
-                value = heu.heuristic(state)
-                entry = TTEntry(hash(state), moves, value, depth)
-                tt.store_entry(entry)
-            # print(value)
-            return value
-        v = INF
-        for move in moves:
-            value = max_value(game.result(state, move, compute_moves=False),
-                              alpha, beta, depth - 1)
-            if value < v:
-                v = value
-                moves.remove(move)
-                moves.insert(0, move)
-            if v <= alpha:
-                entry = TTEntry(hash(state), moves, v, depth)
-                tt.store_entry(entry)
-                return v
-            beta = min(beta, v)
-        entry = TTEntry(hash(state), moves, v, depth)
-        tt.store_entry(entry)
-        return v
-
-    start_time = time.time()
-    best_score = -INF
-    beta = INF
-    best_move = None
-    moves = state.moves
-    for current_depth in range(0, d + 1, 2):
-        for move in moves:
-            # print(move)
-            v = min_value(game.result(state, move, compute_moves=False),
-                          best_score, beta, current_depth)
-            if v > best_score:
-                best_score = v
-                best_move = move
-                if best_score == 1000:
-                    return best_move
-                moves.remove(best_move)
-                moves.insert(0, best_move)
-                #print(f'The best move is {best_move}')
-        #print(f'END DEPTH {current_depth}')
-
-    #final_time = time.time() - start_time
-    # print(
-    #    f'Tempo di ricerca:{final_time} -heuristica migliore:{best_score} - mossa migliore:{best_move}')
-    return best_move
-
-# ______________________________________________________________________________
-# Monte Carlo tree search
-
-
-def monte_carlo_tree_search(game, state, eval_fn, cutoff, timeout, max_it=1000):
+def init_white_openings():
     '''
-    Monte Carlo tree search
+    Compute white player first move
     '''
-
-    def select(node):
-        '''
-        Select a leaf node in the tree
-        '''
-        if node.children:
-            return select(max(node.children.keys(), key=ucb))
-        else:
-            return node
-
-    def expand(node):
-        '''
-        Expand the leaf node by adding all its children states
-        '''
-        if not node.children and not game.terminal_test(node.state):
-            node.children = {
-                MCTNode(state=game.result(node.state, action), parent=node):
-                action for action in game.moves(node.state)
-            }
-        return select(node)
-
-    def simulate(game, state):
-        '''
-        Simulate the utility of current state by random picking a step
-        '''
-        player = game.to_move(state)
-        while not game.terminal_test(state):
-            action = random.choice(list(game.moves(state)))
-            state = game.result(state, action)
-        return -game.utility(state, player)
-
-    def backprop(node, value):
-        '''
-        Passing the utility back to all parent nodes
-        '''
-        if value > 0:
-            node.win += value
-        # if utility == 0:
-        #     n.win += 0.5
-        node.visit += 1
-        if node.parent is not None:
-            backprop(node.parent, -value)
-
-    start_time = time.time()
-    root = MCTNode(state=state)
-    for curr_it in range(max_it):
-        if not cutoff(start_time, timeout, curr_it, max_it):
-            leaf = select(root)
-            child = expand(leaf)
-            result = simulate(game, child.state)
-            backprop(child, result)
-
-    max_state = max(root.children, key=lambda p: p.visit)
-    return root.children.get(max_state)
-
-
-# ______________________________________________________________________________
-# Monte Carlo tree node and ucb function
-
-
-class MCTNode:
-    '''
-    Node in the Monte Carlo search tree, to keep track of the children states
-    '''
-
-    def __init__(self, state=None, parent=None, win=0, visit=0):
-        self.__dict__.update(state=state, parent=parent, win=win, visit=visit)
-        self.children = {}
-
-
-def ucb(node, const=math.sqrt(2)):
-    '''
-    Upper Confidence Bounds function
-    '''
-    return (
-        INF if node.visit == 0
-        else (
-            node.win / node.visit +
-            const * math.sqrt(math.log(node.parent.visit) / node.visit)
-        )
-    )
-
-# ______________________________________________________________________________
-
-
-def get_move(game, state, timeout, max_depth=4, prev_move=None, tt=None):
-    #move = None
-    # move = alphabeta_player(game, state, timeout, max_depth)
-    # move = monte_carlo_player(game, state, timeout)
-    # value, move = iterative_deepening_negamax(
-    #    game, state, depth=3, alpha=-INF, beta=INF
-    # )
-
-    # value, move = negascout_alphabeta(game, state, 1, -INF, INF)
-    if game.turn < 2:
-        move = first_move(state, prev_move)
-    else:
-        move = alphabeta_cutoff_search(state, game, timeout, max_depth, tt)
-        # print(move)
-
-    # print(value)
-
-    if move is None:
-        #print('Alphabeta failure')
-        move = random_player(state)
-    return move
-
-
-def init_openings():
-    # White openings
     moves = WHITE_OPENINGS
     for i in range(len(moves)):
         from_move, to_move = moves[i]
@@ -327,7 +68,11 @@ def init_openings():
             to_move.diagonal_mirroring(diag=-1)
         ))
 
-    # Black openings
+
+def init_black_openings():
+    '''
+    Compute black player first move
+    '''
     initial_white_keys = list(BLACK_OPENINGS.keys())
     white_keys = list(initial_white_keys)
     for white_key in initial_white_keys:
@@ -371,41 +116,399 @@ def init_openings():
             ))
 
 
+def init_openings():
+    '''
+    Compute first turn moves
+    '''
+    init_white_openings()
+    init_black_openings()
+
+
 def first_move(state, prev_move=None):
     '''
     First opening move
     '''
     utils.set_random_seed()
-    if state.to_move == gutils.TablutPlayerType.WHITE:
-        return utils.get_rand(WHITE_OPENINGS)
-    elif prev_move is not None:
-        return utils.get_rand(BLACK_OPENINGS[prev_move])
-    return None
+    return (
+        utils.get_rand(WHITE_OPENINGS) if (
+            state.to_move == gutils.TablutPlayerType.WHITE
+        )
+        else utils.get_rand(BLACK_OPENINGS[prev_move]) if prev_move is not None
+        else None
+    )
 
 
-def random_player(state):
+# ______________________________________________________________________________
+# Transposition table
+
+class TTEntry:
+    '''
+    Transposition table entry
+    '''
+
+    def __init__(self, key, moves, value, depth):
+        self.key = key
+        self.moves = moves
+        self.value = value
+        self.depth = depth
+
+    def __repr__(self):
+        return (
+            f'Key: {self.key}\n'
+            f'Moves: {self.moves}\n'
+            f'Value: {self.value}\n'
+            f'Depth: {self.depth}'
+        )
+
+
+class TT:
+    '''
+    Transposition table
+    '''
+
+    def __init__(self):
+        self.table = {}
+
+    def get_entry(self, state):
+        '''
+        Return the transposition table entry of the given state,
+        if it exists
+        '''
+        hash_value = hash(state)
+        entry = self.table.get(hash_value)
+        if entry is not None and entry.key == hash_value:
+            return entry
+        return None
+
+    def get_moves(self, state):
+        '''
+        Return the transposition table entry moves of the given state,
+        if it exists
+        '''
+        entry = self.get_entry(state)
+        return entry.moves if entry is not None else None
+
+    def get_value(self, state):
+        '''
+        Return the transposition table entry value of the given state,
+        if it exists
+        '''
+        entry = self.get_entry(state)
+        return entry.value if entry is not None else None
+
+    def store_entry(self, entry):
+        '''
+        Store the given entry in the transposition table
+        '''
+        self.table[entry.key] = entry
+
+    def store_exp_entry(self, state, moves, value, depth):
+        '''
+        Store the given entry in the transposition table
+        '''
+        entry = TTEntry(hash(state), moves, value, depth)
+        self.store_entry(entry)
+
+    def clear(self):
+        '''
+        Delete every entry from the transposition table
+        '''
+        self.table = {}
+
+
+# ______________________________________________________________________________
+# Minimax algorithm
+
+def minimax_alphabeta(game, state, timeout, max_depth, tt):
+    '''
+    Iterative deepening minimax with alpha-beta pruning and transposition tables
+    '''
+
+    def max_value(state, depth, alpha, beta):
+        entry = tt.get_entry(state)
+        state.moves = (
+            entry.moves if entry is not None and entry.moves is not None
+            else game.player_moves(state.pawns, state.to_move)
+        )
+        moves = state.moves
+
+        if alphabeta_cutoff(game, state, depth, start_time, timeout):
+            if entry is not None and entry.depth == depth:
+                value = entry.value
+            else:
+                value = heu.heuristic(state)
+                tt.store_exp_entry(state, moves, value, depth)
+            return value
+        v = -INF
+        for move in moves:
+            value = min_value(
+                game.result(state, move, compute_moves=False), depth - 1,
+                alpha=alpha, beta=beta
+            )
+            if value > v:
+                v = value
+                moves.remove(move)
+                moves.insert(0, move)
+            if v >= beta:
+                tt.store_exp_entry(state, moves, v, depth)
+                return v
+            alpha = max(alpha, v)
+        tt.store_exp_entry(state, moves, v, depth)
+        return v
+
+    def min_value(state, depth, alpha, beta):
+        entry = tt.get_entry(state)
+        state.moves = (
+            entry.moves if entry is not None and entry.moves is not None
+            else game.player_moves(state.pawns, state.to_move)
+        )
+        moves = state.moves
+
+        if alphabeta_cutoff(game, state, depth, start_time, timeout):
+            if entry is not None and entry.depth == depth:
+                value = entry.value
+            else:
+                value = heu.heuristic(state)
+                tt.store_exp_entry(state, moves, value, depth)
+            return value
+        v = INF
+        for move in moves:
+            value = max_value(
+                game.result(state, move, compute_moves=False), depth - 1,
+                alpha=alpha, beta=beta
+            )
+            if value < v:
+                v = value
+                moves.remove(move)
+                moves.insert(0, move)
+            if v <= alpha:
+                tt.store_exp_entry(state, moves, v, depth)
+                return v
+            beta = min(beta, v)
+        tt.store_exp_entry(state, moves, v, depth)
+        return v
+
+    start_time = time.time()
+    best_score = -INF
+    beta = INF
+    best_move = None
+    moves = state.moves
+    for current_depth in range(0, max_depth + 1, 2):
+        for move in moves:
+            v = min_value(
+                game.result(state, move, compute_moves=False),
+                current_depth, alpha=best_score, beta=beta
+            )
+            if v > best_score:
+                best_score = v
+                best_move = move
+                if best_score == 1000:
+                    return best_move
+                moves.remove(best_move)
+                moves.insert(0, best_move)
+    return best_move
+
+
+# ______________________________________________________________________________
+# Negamax algorithm
+
+def failsoft_negamax_alphabeta(game, state, timeout, max_depth,
+                               alpha=-INF, beta=INF):
+    '''
+    Negamax with alpha-beta pruning, implemented in a fail-soft way, which
+    means that if it fails it still returns the best result found so far.
+    The fail-hard version would only return either alpha or beta.
+    '''
+
+    def negamax(state, depth, alpha, beta):
+        if alphabeta_cutoff(game, state, depth, start_time, timeout):
+            return heu.heuristic(state), None
+        best_move = None
+        best_value = -INF
+        for move in game.actions(state):
+            new_state = game.result(state, move)
+            recursed_value, _ = negamax(
+                state=new_state,
+                depth=depth - 1,
+                alpha=-beta,
+                beta=-max(alpha, best_value)
+            )
+            current_value = -recursed_value
+            if current_value > best_value:
+                best_value = current_value
+                best_move = move
+                if best_value >= beta:
+                    return best_value, best_move
+        return best_value, best_move
+
+    start_time = time.time()
+    return negamax(state, max_depth, alpha=alpha, beta=beta)
+
+
+# ______________________________________________________________________________
+# Aspiration search
+
+def aspiration(game, state, timeout, previous, window_size, max_depth):
+    '''
+    Aspiration search
+    '''
+    alpha = previous - window_size
+    beta = previous + window_size
+    while True:
+        result, move = failsoft_negamax_alphabeta(
+            game, state, timeout, max_depth, alpha=alpha, beta=beta
+        )
+        if result <= alpha:
+            alpha = -INF
+        elif result >= beta:
+            beta = INF
+        else:
+            return result, move
+
+
+# ______________________________________________________________________________
+# Negascout algorithm
+
+def negascout_alphabeta(game, state, timeout, max_depth, alpha=-INF, beta=INF):
+    '''
+    Negascout with alpha-beta pruning
+    '''
+
+    def negascout(state, depth, alpha, beta):
+        if alphabeta_cutoff(game, state, depth, start_time, timeout):
+            return heu.heuristic(state), None
+        best_move = None
+        best_value = -INF
+        adaptive_beta = beta
+        for move in game.moves(state):
+            new_state = game.result(state, move)
+            recursed_value, _ = negascout(
+                state=new_state,
+                depth=depth - 1,
+                alpha=-adaptive_beta,
+                beta=-max(alpha, best_value)
+            )
+            current_value = -recursed_value
+            if current_value > best_value:
+                if adaptive_beta == beta or depth < 3 or current_value >= beta:
+                    best_value = current_value
+                    best_move = move
+                else:
+                    negative_best_value, _ = negascout(
+                        state=new_state,
+                        depth=depth - 1,
+                        alpha=-beta,
+                        beta=-current_value
+                    )
+                    best_value = -negative_best_value
+                if best_value >= beta:
+                    return best_value, best_move
+                adaptive_beta = max(alpha, best_value) + 1
+        return best_value, best_move
+
+    start_time = time.time()
+    return negascout(state, max_depth, alpha=alpha, beta=beta)
+
+
+# ______________________________________________________________________________
+# Monte Carlo tree search
+
+def monte_carlo(game, state, timeout, max_it):
+    '''
+    Monte Carlo tree search
+    '''
+
+    def select(node):
+        '''
+        Select a leaf node in the tree
+        '''
+        return (
+            select(max(node.children.keys(), key=ucb)) if node.children
+            else node
+        )
+
+    def expand(node):
+        '''
+        Expand the leaf node by adding all its children states
+        '''
+        if not node.children and not game.terminal_test(node.state):
+            node.children = {
+                MCTNode(state=game.result(node.state, action), parent=node):
+                action for action in game.actions(node.state)
+            }
+        return select(node)
+
+    def simulate(game, state):
+        '''
+        Simulate the utility of current state by random picking a step
+        '''
+        player = game.to_move(state)
+        while not game.terminal_test(state):
+            action = get_random_move(state)
+            state = game.result(state, action)
+        return -game.utility(state, player)
+
+    def backprop(node, utility):
+        '''
+        Passing the utility back to all parent nodes
+        '''
+        if utility > 0:
+            node.win += utility
+        node.visit += 1
+        if node.parent is not None:
+            backprop(node.parent, -utility)
+
+    start_time = time.time()
+    root = MCTNode(state=state)
+    for curr_it in range(max_it):
+        if not monte_carlo_cutoff(start_time, timeout, curr_it, max_it):
+            leaf = select(root)
+            child = expand(leaf)
+            result = simulate(game, child.state)
+            backprop(child, result)
+    max_state = max(root.children, key=lambda p: p.visit)
+    return root.children.get(max_state)
+
+
+class MCTNode:
+    '''
+    Node in the Monte Carlo search tree, to keep track of the children states
+    '''
+
+    def __init__(self, state=None, parent=None, win=0, visit=0):
+        self.__dict__.update(state=state, parent=parent, win=win, visit=visit)
+        self.children = {}
+
+
+def ucb(node, const=math.sqrt(2)):
+    '''
+    Upper Confidence Bounds function
+    '''
+    return (
+        INF if node.visit == 0
+        else (
+            node.win / node.visit +
+            const * math.sqrt(math.log(node.parent.visit) / node.visit)
+        )
+    )
+
+# ______________________________________________________________________________
+# Cutoff and utility functions
+
+
+def in_time(start_time, timeout):
+    '''
+    Check if there's no time left
+    '''
+    return time.time() - start_time < timeout
+
+
+def get_random_move(state, seed=None):
     '''
     Return a random legal move
     '''
-    return utils.get_from_set(state.moves)
-
-
-def alphabeta_player(game, state, timeout, max_depth):
-    '''
-    Alphabeta player
-    '''
-    return alphabeta_search(
-        game, state, heu.heuristic, alphabeta_cutoff, timeout, max_depth
-    )
-
-
-def monte_carlo_player(game, state, timeout, max_it=1000):
-    '''
-    MCTS player
-    '''
-    return monte_carlo_tree_search(
-        game, state, heu.heuristic, montecarlo_cutoff, timeout, max_it
-    )
+    utils.set_random_seed(seed)
+    return utils.get_rand(state.moves)
 
 
 def alphabeta_cutoff(game, state, depth, start_time, timeout):
@@ -421,7 +524,7 @@ def alphabeta_cutoff(game, state, depth, start_time, timeout):
     )
 
 
-def montecarlo_cutoff(start_time, timeout, curr_it, max_it=1000):
+def monte_carlo_cutoff(start_time, timeout, curr_it, max_it):
     '''
     Cut the search when the maximum number of iterations is reached
     or when there's no time left
@@ -432,166 +535,51 @@ def montecarlo_cutoff(start_time, timeout, curr_it, max_it=1000):
     )
 
 
-def in_time(start_time, timeout):
+# ______________________________________________________________________________
+# Players
+
+def random_player(game, state, **kwargs):
     '''
-    Check if there's no time left
+    Return a random legal move
     '''
-    return time.time() - start_time < timeout
+    return get_random_move(state, seed=game.turn)
 
 
-def failsoft_negamax_alphabeta(game, state, depth, alpha, beta,
-                               moves=None, tt=None):
+def minimax_player(game, state, timeout, max_depth, tt, **kwargs):
     '''
-    Negamax with alpha-beta pruning, implemented in a fail-soft way, which
-    means that if it fails it still returns the best result found so far.
-    The fail-hard version would only return either alpha or beta.
+    Iterative deepening minimax player with alpha-beta pruning and
+    transposition tables
     '''
-    '''
-    # Lookup transposition table
-    if tt is not None:
-        entry = tt.get_entry(state)
-        if entry is not None and entry.depth >= depth:
-            if entry.entry_type == TTEntryType.EXACT:
-                print('get1')
-                return entry.best_move
-            elif (entry.node_type == TTEntryType.LOWER and
-                  entry.valued_action.value > alpha):
-                print('get2')
-                alpha = entry.value
-            elif (entry.node_type == TTEntryType.UPPER and
-                  entry.valued_action.value < beta):
-                print('get3')
-                beta = entry.value
-            if alpha >= beta:
-                print('get4')
-                return entry.best_move
-    '''
-    random.seed(int(time.time()))
-    # Negamax
-    if game.terminal_test(state) or depth == 0:
-        return heu.heuristic(game.turn, state), None
-    if moves is None:
-        moves = list(game.moves(state))
-        random.shuffle(moves)
-    best_move = None
-    best_value = -INF
-    for move in moves:
-        new_state = game.result(state, move)
-        recursed_value, _ = failsoft_negamax_alphabeta(
-            game=game,
-            state=new_state,
-            depth=depth - 1,
-            alpha=-beta,
-            beta=-max(alpha, best_value),
-            tt=tt
-        )
-        current_value = -recursed_value
-        if current_value > best_value:
-            best_value = current_value
-            best_move = move
-            print(
-                f'Nuova best move per {state.to_move} :{best_move} Best-value:{best_value} - Depth: {depth}')
-            if best_value >= beta:
-                print(f'Taglio effettuato Beta:{beta} Best-value:{best_value}')
-                return best_value, best_move
-    '''
-    # Update transposition table
-    if tt is not None:
-        entry = TTEntry(
-            key=hash(state),
-            entry_type=None,
-            value=best_value,
-            depth=depth,
-            best_move=best_move
-        )
-        if best_value <= alpha:
-            entry.entry_type = TTEntryType.LOWER
-        elif best_value >= beta:
-            entry.entry_type = TTEntryType.UPPER
-        else:
-            entry.entry_type = TTEntryType.EXACT
-        tt.store_entry(entry)
-    '''
-    print(
-        f'Nuova mossa per {state.to_move} : {best_move} - Heu: {best_value} - Depth: {depth}')
-    return best_value, best_move
+    return minimax_alphabeta(game, state, timeout, max_depth, tt)
 
 
-def iterative_deepening_negamax(game, state, depth, alpha, beta):
+def negamax_player(game, state, timeout, max_depth=4, **kwargs):
     '''
-    Fail-soft negamax with alpha-beta pruning and iterative deepening
+    Negamax player with alpha-beta pruning
     '''
-    best_value = alpha
-    best_move = None
-    moves = list(state.moves)
-    random.shuffle(moves)
-    tt = TT()
-    for d in range(1, depth + 1):
-        value, move = failsoft_negamax_alphabeta(
-            game, state, d, best_value, beta, moves, tt
-        )
-        if move is not None and value > best_value:
-            best_value = value
-            best_move = move
-            moves.remove(best_move)
-            moves.insert(0, best_move)
-            print(f'The best move is {best_move}')
-        print(f'END DEPTH {d}')
-    tt.clear()
-    return best_value, best_move
+    return failsoft_negamax_alphabeta(game, state, timeout, max_depth)
 
 
-def aspiration(game, state, depth, alpha, beta, previous, window_size):
+def negascout_player(game, state, timeout, max_depth=4, **kwargs):
     '''
-    Aspiration search
+    Negascout player with alpha-beta pruning
     '''
-    alpha = previous - window_size
-    beta = previous + window_size
-    while True:
-        result, move = failsoft_negamax_alphabeta(
-            game, state, depth, alpha, beta
-        )
-        if result <= alpha:
-            alpha = -INF
-        elif result >= beta:
-            beta = INF
-        else:
-            return result, move
+    return negascout_alphabeta(game, state, timeout, max_depth)
 
 
-def negascout_alphabeta(game, state, depth, alpha, beta):
+def monte_carlo_player(game, state, timeout, max_it=1000, **kwargs):
     '''
-    Negascout with alpha-beta pruning
+    Monte Carlo player
     '''
-    if game.terminal_test(state) or depth == 0:
-        return heu.heuristic(game.turn, state), None
-    best_move = None
-    best_value = -INF
-    adaptive_beta = beta
-    for move in game.moves(state):
-        new_state = game.result(state, move)
-        recursed_value, _ = negascout_alphabeta(
-            game=game,
-            state=new_state,
-            depth=depth - 1,
-            alpha=-adaptive_beta,
-            beta=-max(alpha, best_value)
-        )
-        current_value = -recursed_value
-        if current_value > best_value:
-            if adaptive_beta == beta or depth < 3 or current_value >= beta:
-                best_value = current_value
-                best_move = move
-            else:
-                negative_best_value, _ = negascout_alphabeta(
-                    game=game,
-                    state=new_state,
-                    depth=depth - 1,
-                    alpha=-beta,
-                    beta=-current_value
-                )
-                best_value = -negative_best_value
-            if best_value >= beta:
-                return best_value, best_move
-            adaptive_beta = max(alpha, best_value) + 1
-    return best_value, best_move
+    return monte_carlo(game, state, timeout, max_it)
+
+
+def get_move(game, state, player, prev_move=None, **kwargs):
+    '''
+    Compute a move with the given player
+    '''
+    move = (
+        first_move(state, prev_move) if game.turn < 2
+        else player(game, state, **kwargs)
+    )
+    return move if move is not None else random_player(game, state)

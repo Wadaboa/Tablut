@@ -236,7 +236,7 @@ def find_chain(pawn, black_pawns, available_camps, camps_found=0, chain=set()):
     if not available_camps.isdisjoint(neighbors):
         chain.add(pawn)
         camps = available_camps.intersection(neighbors)
-        camp = utils.get_from_set(camps)
+        camp = utils.get_rand(camps)
         camps.update(
             TablutBoard.unique_full_k_neighbors(camp, k=1),
             TablutBoard.unique_full_k_neighbors(camp, k=2)

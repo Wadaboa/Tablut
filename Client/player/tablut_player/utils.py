@@ -64,6 +64,8 @@ def get_rand(seq, num=1):
     '''
     Return the given number of random elements from the given sequence
     '''
+    if isinstance(seq, set):
+        return get_from_set(seq)
     seq = list(seq) if not isinstance(seq, list) else seq
     return random.choice(seq) if num == 1 else random.sample(seq, num)
 

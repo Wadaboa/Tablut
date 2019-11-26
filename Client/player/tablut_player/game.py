@@ -8,7 +8,6 @@ from typing import overload
 import random
 
 import tablut_player.game_utils as gutils
-import tablut_player.heuristic as heu
 import tablut_player.config as conf
 from tablut_player.game_utils import (
     TablutBoardPosition,
@@ -108,8 +107,6 @@ class TablutGame(Game):
         Pawns initial values
         '''
         pawns = {}
-
-        # White pawns
         white_pawns_positions = {
             TablutBoardPosition.create(row=2, col=4),
             TablutBoardPosition.create(row=3, col=4),
@@ -121,13 +118,8 @@ class TablutGame(Game):
             TablutBoardPosition.create(row=4, col=6)
         }
         pawns[TablutPawnType.WHITE] = white_pawns_positions
-
-        # Black pawns
         pawns[TablutPawnType.BLACK] = TablutBoard.CAMPS
-
-        # King
         pawns[TablutPawnType.KING] = {TablutBoard.CASTLE}
-
         return pawns
 
     def _init_zobrist(self):
@@ -189,16 +181,26 @@ class TablutGame(Game):
         '''
         self.turn += 1
 
-    def moves(self, state):
+    def actions(self, state):
+        '''
+        Return every possible move from the given state
+        '''
         return state.moves
 
     def next_states(self, state):
+        '''
+        Return the next states from the current possible actions
+        '''
         return [
             self.result(state, move)
-            for move in self.moves(state)
+            for move in self.actions(state)
         ]
 
     def result(self, state, move, compute_moves=True):
+        '''
+        Return the next state with the given move and
+        compute the new state moves, if specified
+        '''
         pawns = TablutBoard.move(state.pawns, state.to_move, move)
         to_move = gutils.other_player(state.to_move)
         res = TablutGameState(
@@ -238,7 +240,7 @@ class TablutGame(Game):
     @classmethod
     def terminal_test(cls, state):
         '''
-        A state is terminal if one player wins
+        A state is terminal if one player wins or the game is stuck
         '''
         return state.utility != 0 or cls._draw(state)
 
