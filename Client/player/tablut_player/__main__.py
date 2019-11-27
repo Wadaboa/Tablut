@@ -22,11 +22,11 @@ from tablut_player.connector import Connector
 
 
 PLAYERS = {
-    'Random': strat.random_player,
-    'Minimax': strat.minimax_player,
-    'Negamax': strat.negamax_player,
-    'Negascout': strat.negascout_player,
-    'MonteCarlo': strat.monte_carlo_player
+    'random': strat.random_player,
+    'minimax': strat.minimax_player,
+    'negamax': strat.negamax_player,
+    'negascout': strat.negascout_player,
+    'montecarlo': strat.monte_carlo_player
 }
 
 
@@ -62,21 +62,21 @@ def parse_args():
         help='tablut server ip address', default=conf.SERVER_IP
     )
     parser.add_argument(
-        '-d', '--debug', dest='debug', action='store_true',
-        help='run the command in debug mode'
-    )
-    parser.add_argument(
         '-a', '--autoplay', dest='autoplay', action='store_true',
         help="avoid connecting to the server"
+    )
+    parser.add_argument(
+        '-p', '--players', dest='players', action=required_length(1, 2),
+        choices=PLAYERS.keys(), nargs='+', default=['minimax'],
+        help="choose the players you want to play with", type=str.lower
     )
     parser.add_argument(
         '-g', '--genetic', dest='genetic', action='store_true',
         help="train tablut player using a genetic algorithm"
     )
     parser.add_argument(
-        '-p', '--players', dest='players', action=required_length(1, 2),
-        choices=PLAYERS.keys(), nargs='+', default=['Minimax'],
-        help="choose the players you want to play with"
+        '-d', '--debug', dest='debug', action='store_true',
+        help='run the command in debug mode'
     )
     args = parser.parse_args()
     conf.MOVE_TIMEOUT = int(args.timeout)
