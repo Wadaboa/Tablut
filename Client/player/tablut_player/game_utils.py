@@ -26,12 +26,6 @@ class TablutGameState:
         self.moves = moves
         self.old_state = old_state
 
-    '''
-    def compute_moves(self):
-        if len(self.moves) == 0 and not TablutGame.terminal_test(self):
-            self.moves = TablutGame.player_moves(self.pawns, self.to_move)
-    '''
-
     def __eq__(self, other):
         return self.pawns == other.pawns and self.to_move == other.to_move
 

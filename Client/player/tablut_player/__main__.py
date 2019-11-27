@@ -7,7 +7,6 @@ import argparse
 import sys
 import threading
 import traceback
-import time
 from multiprocessing import JoinableQueue
 
 from PyQt5 import QtWidgets
@@ -16,6 +15,7 @@ import tablut_player.config as conf
 import tablut_player.game_utils as gutils
 import tablut_player.strategy as strat
 import tablut_player.genetic as gen
+import tablut_player.heuristic as heu
 from tablut_player.board import TablutBoardGUI
 from tablut_player.game import TablutGame
 from tablut_player.strategy import get_move
@@ -210,6 +210,7 @@ def play():
                 timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
                 max_depth=4, tt=ttable, max_it=1000
             )
+            print(f'My move: {my_move}')
             game_state = game.result(game_state, my_move)
             action_queue.put((my_move, game_state.to_move))
             action_queue.join()
@@ -220,6 +221,7 @@ def play():
             enemy_move = gutils.from_pawns_to_move(
                 game_state.pawns, pawns, game_state.to_move
             )
+            print(f'Enemy move: {enemy_move}')
             game_state = game.result(game_state, enemy_move)
     except Exception:
         print(traceback.format_exc())

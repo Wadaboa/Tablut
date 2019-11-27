@@ -2,6 +2,7 @@
 Tablut package setup
 '''
 
+
 from setuptools import setup, find_packages
 
 from tablut_player import __version__
