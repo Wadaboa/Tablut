@@ -20,11 +20,11 @@ In order to correctly install this Tablut client, do the following:
 This script has been tested as working with `Powershell 6`.
 
 ## Usage
-Run [`./CalbiFalai.sh`](CalbiFalai.sh) or [`.\CalbiFalai.ps1`](CalbiFalai.ps1) with the following 3 positional arguments:
+Make sure your current working directory is the `Client/scripts/unix/` (`Client/scripts/win/`) directory and run [`./CalbiFalai.sh`](CalbiFalai.sh) ([`.\CalbiFalai.ps1`](CalbiFalai.ps1)) with the following 3 positional arguments:
 1. Role: `White` or `Black`
 2. Timeout: Given time to compute each move
 3. Server address: IP address where the server is running
 
 If you are on Windows you might need to do the same exection policy setting and restore, as specified above, before and after running the script.
 
-For example, you could execute the client with a command like `./CalbiFalai.sh White 60 127.0.0.1` or `.\CalbiFalai.ps1 White 60 127.0.0.1`.
+For example, you could execute the client with a command like `./CalbiFalai.sh White 60 127.0.0.1` (`.\CalbiFalai.ps1 White 60 127.0.0.1`).

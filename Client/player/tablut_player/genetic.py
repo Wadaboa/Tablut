@@ -77,19 +77,23 @@ def tournament(population, sleep=3):
     # Play
     game_num = 0
     processes = []
+    random_player = TablutPlayer(weights=[0] * len(heu.HEURISTICS))
+    population.append(random_player)
     results = Array('i', [0] * (len(population) ** 2))
     for player_one in population:
         for player_two in population:
-            proc = Process(
-                target=play,
-                args=(player_one, player_two, results, game_num)
-            )
-            proc.start()
-            processes.append(proc)
-            game_num += 1
+            if player_one != random_player and player_two != random_player:
+                proc = Process(
+                    target=play,
+                    args=(player_one, player_two, results, game_num)
+                )
+                proc.start()
+                processes.append(proc)
+                game_num += 1
     time.sleep(sleep)
     for proc in processes:
         proc.join()
+    population.remove(random_player)
 
     # Collect results
     game_num = 0
@@ -116,9 +120,16 @@ def play(player_one, player_two, results, game_num, max_turns=50):
             black_ttable.clear()
             white_ttable.clear()
         game.inc_turn()
-        heu.set_heuristic_weights(player_one.weights)
+
+        # Random player check
+        if all([weight == 0 for weight in player_one.weights]):
+            player_type = strat.random_player
+        else:
+            player_type = conf.WHITE_PLAYER
+            heu.set_heuristic_weights(player_one.weights)
+
         white_move = strat.get_move(
-            game, game_state, conf.WHITE_PLAYER, prev_move=None,
+            game, game_state, player_type, prev_move=None,
             timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
             max_depth=4, tt=white_ttable
         )
@@ -127,9 +138,16 @@ def play(player_one, player_two, results, game_num, max_turns=50):
             results[game_num] = 1
             player_one.white_wins += 1
             break
-        heu.set_heuristic_weights(player_two.weights)
+
+        # Random player check
+        if all([weight == 0 for weight in player_two.weights]):
+            player_type = strat.random_player
+        else:
+            player_type = conf.BLACK_PLAYER
+            heu.set_heuristic_weights(player_two.weights)
+
         black_move = strat.get_move(
-            game, game_state, conf.BLACK_PLAYER, prev_move=None,
+            game, game_state, player_type, prev_move=None,
             timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
             max_depth=4, tt=black_ttable
         )
@@ -171,7 +189,7 @@ def genetic_algorithm(ngen=10,
     Perform the given number of tournaments, with evolving populations
     '''
     logger = init_logger()
-    f_thresh = int(0.90 * (pop_number ** 2))
+    f_thresh = int(0.90 * ((pop_number + 1) ** 2) - 1)
     population = init_population(
         pop_number=pop_number,
         gene_pool=gene_pool,
@@ -233,7 +251,8 @@ def init_population(pop_number, gene_pool, num_weights):
     '''
     population = []
     utils.set_random_seed()
-    for _ in range(pop_number):
+    population.append(TablutPlayer(weights=list(heu.HEURISTICS.values())))
+    for _ in range(pop_number - 1):
         new_weights = [
             utils.get_rand_double(gene_pool[0], gene_pool[-1])
             for _ in range(num_weights)

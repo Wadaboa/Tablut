@@ -359,13 +359,17 @@ class TablutBoard():
         Return the k-level diagonal neighbors of the given pawn
         '''
         l_up_pawn = TablutBoardPosition.create(
-            row=pawn.row - k, col=pawn.col - k)
+            row=pawn.row - k, col=pawn.col - k
+        )
         r_up_pawn = TablutBoardPosition.create(
-            row=pawn.row - k, col=pawn.col + k)
+            row=pawn.row - k, col=pawn.col + k
+        )
         r_down_pawn = TablutBoardPosition.create(
-            row=pawn.row + k, col=pawn.col + k)
+            row=pawn.row + k, col=pawn.col + k
+        )
         l_down_pawn = TablutBoardPosition.create(
-            row=pawn.row + k, col=pawn.col - k)
+            row=pawn.row + k, col=pawn.col - k
+        )
         return [l_up_pawn, r_up_pawn, r_down_pawn, l_down_pawn]
 
     @classmethod

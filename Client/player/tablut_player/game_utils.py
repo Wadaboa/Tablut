@@ -313,6 +313,7 @@ def from_pawns_to_move(old_pawns, new_pawns, player_type):
         from_move = old_pawns[pawn_type].difference(new_pawns[pawn_type])
         if len(from_move) > 0:
             to_move = new_pawns[pawn_type].difference(old_pawns[pawn_type])
+            break
     return (from_move.pop(), to_move.pop())
 
 

@@ -50,11 +50,12 @@ class Connector(Process):
         except ConnectionRefusedError as cre:
             self.state_queue.put(cre)
             self.state_queue.join()
-        except ConnectionResetError as cre:
+        except Exception as exc:
             self.sock.close()
-            self.state_queue.put(cre)
+            self.state_queue.put(exc)
             self.state_queue.join()
         finally:
+            self.action_queue.close()
             self.state_queue.close()
 
     def _connect(self):

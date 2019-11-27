@@ -7,6 +7,7 @@ import argparse
 import sys
 import threading
 import traceback
+import time
 from multiprocessing import JoinableQueue
 
 from PyQt5 import QtWidgets
@@ -223,6 +224,7 @@ def play():
     except Exception:
         print(traceback.format_exc())
     finally:
+        conn.terminate()
         conn.join()
     winner = game.utility(
         game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
@@ -236,11 +238,11 @@ def update_gui(gui, pawns):
 
 
 def get_state(queue):
-    state = queue.get()
+    elem = queue.get()
     queue.task_done()
-    if not isinstance(state, tuple):
-        raise state
-    return state
+    if not isinstance(elem, tuple):
+        raise elem
+    return elem
 
 
 def test_state():
