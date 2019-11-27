@@ -1,11 +1,14 @@
-$_SRC_PATH="..\..\"
-$_ENVIRONMENT_PATH="venv"
-py -3.7 -m venv $_SRC_PATH$_ENVIRONMENT_PATH --clear
-$_SRC_PATH$_ENVIRONMENT_PATH\Scripts\activate
+Set-Location $PSScriptRoot
+$_SRC_PATH = "..\..\"
+Set-Location $_SRC_PATH
+$_ENVIRONMENT_PATH = "venv"
+py -3.7 -m venv $_ENVIRONMENT_PATH --clear
+& ".\$_ENVIRONMENT_PATH\Scripts\activate"
 
-cd $_SRC_PATH\player\
-pip install wheel
-pip install -r requirements.txt
-pip install .
+& {
+    pip install wheel
+    pip install -r player\requirements.txt
+    pip install player\
+}
 
 deactivate
