@@ -18,20 +18,25 @@ from tablut_player.game import TablutGame
 
 HEURISTICS_WEIGHTS_RANGE = [0, 20]
 
-if conf.TRAIN:
-    LOGGER = logging.getLogger('GeneticLogger')
-    LOGGER_FILE_HANDLER = logging.FileHandler(
+
+def init_logger():
+    '''
+    Initialize logger
+    '''
+    logger = logging.getLogger('GeneticLogger')
+    logger_file_handler = logging.FileHandler(
         f'train/train-{datetime.now().strftime("%d_%m_%y-%H_%M")}.log'
     )
-    LOGGER_STREAM_HANDLER = logging.StreamHandler()
-    LOGGER_FORMATTER = logging.Formatter(
+    logger_stream_handler = logging.StreamHandler()
+    logger_formatter = logging.Formatter(
         '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
     )
-    LOGGER_FILE_HANDLER.setFormatter(LOGGER_FORMATTER)
-    LOGGER_STREAM_HANDLER.setFormatter(LOGGER_FORMATTER)
-    LOGGER.addHandler(LOGGER_FILE_HANDLER)
-    LOGGER.addHandler(LOGGER_STREAM_HANDLER)
-    LOGGER.setLevel(logging.INFO)
+    logger_file_handler.setFormatter(logger_formatter)
+    logger_stream_handler.setFormatter(logger_formatter)
+    logger.addHandler(logger_file_handler)
+    logger.addHandler(logger_stream_handler)
+    logger.setLevel(logging.INFO)
+    return logger
 
 
 class TablutPlayer():
@@ -113,8 +118,9 @@ def play(player_one, player_two, results, game_num, max_turns=50):
         game.inc_turn()
         heu.set_heuristic_weights(player_one.weights)
         white_move = strat.get_move(
-            game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
-            tt=white_ttable
+            game, game_state, conf.WHITE_PLAYER, prev_move=None,
+            timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
+            max_depth=4, tt=white_ttable
         )
         game_state = game.result(game_state, white_move)
         if game.terminal_test(game_state):
@@ -123,8 +129,9 @@ def play(player_one, player_two, results, game_num, max_turns=50):
             break
         heu.set_heuristic_weights(player_two.weights)
         black_move = strat.get_move(
-            game, game_state, conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
-            prev_move=white_move, tt=black_ttable
+            game, game_state, conf.BLACK_PLAYER, prev_move=None,
+            timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
+            max_depth=4, tt=black_ttable
         )
         game_state = game.result(game_state, black_move)
         if game.terminal_test(game_state):
@@ -145,46 +152,47 @@ def find_best_player(player):
     return player.white_wins + player.black_wins
 
 
-def log_population(population, header=''):
+def log_population(logger, population, header=''):
     '''
     Log the given population, with the given header string
     '''
     string = f'{header}\n'
     for player in population:
         string += f'{player.weights}\n'
-    LOGGER.info(string)
+    logger.info(string)
 
 
 def genetic_algorithm(ngen=10,
                       pop_number=10,
                       gene_pool=HEURISTICS_WEIGHTS_RANGE,
                       num_weights=len(heu.HEURISTICS),
-                      f_thresh=19,
                       pmut=0.3):
     '''
     Perform the given number of tournaments, with evolving populations
     '''
+    logger = init_logger()
+    f_thresh = int(0.90 * (pop_number ** 2))
     population = init_population(
         pop_number=pop_number,
         gene_pool=gene_pool,
         num_weights=num_weights
     )
-    log_population(population, header='Initial population')
+    log_population(logger, population, header='Initial population')
 
     for i in range(ngen):
         population = tournament(population)
-        log_population(population, header=f'End tournament {i}')
-
-        if isinstance(population, TablutPlayer):
-            log_population([population], header=f'Best player')
-            break
+        log_population(logger, population, header=f'End tournament {i}')
 
         population = next_generation(
             population, find_best_player, gene_pool, f_thresh, pmut
         )
 
+        if isinstance(population, TablutPlayer):
+            log_population(logger, [population], header=f'Best player')
+            break
+
     if isinstance(population, list):
-        log_population(population, header=f'Last population')
+        log_population(logger, population, header=f'Last population')
 
     return population
 

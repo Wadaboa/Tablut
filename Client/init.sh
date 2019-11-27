@@ -10,3 +10,5 @@ pip install wheel
 cd player/
 pip install -r requirements.txt
 pip install . ## Install the Tablut player library
+
+deactivate

@@ -4,9 +4,9 @@ Configuration files used by the other modules
 
 
 # Flags
-TRAIN = False
 AUTOPLAY = False
 DEBUG = False
+TRAIN = False
 
 # Players
 MY_PLAYER = None
@@ -31,3 +31,7 @@ PLAYER_ROLE = WHITE_ROLE
 
 # Board configs
 BOARD_SIZE = 9
+
+# Genetic configs
+GEN_GENERATIONS = 10
+GEN_POPULATION = 10

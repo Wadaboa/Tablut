@@ -1,7 +1,6 @@
 # Tablut player
 This Tablut player is a `pip` package and it is written in `Python 3.7.4`.
-This has also been tested as working with `Python 3.7.5`.\
-Please, make sure to install one of the specified Python version on your system,
+This has also been tested as working with `Python 3.7.5`. Please, make sure to install one of the specified Python version on your system,
 to ensure compatibility.
 
 ## Installation
@@ -24,7 +23,7 @@ It is also possible to specify the following optional parameters:
 2. `--server-ip` or `-s`: String representing the IP address where the server is running (defaults to `localhost`)
 3. `--autoplay` or `-a`: Flag that specifies to avoid connecting to the server. With this flag enabled a GUI will be opened (defaults to `False`)
 4. `--players` or `-p`: List of 1 or 2 player types strings (not case sensitive), to be specified along with the `-a` flag (defaults to `minimax`)
-5. `--genetic` or `-g`: Flag that specifies to launch the training algorithm (defaults to `False`)
+5. `--genetic` or `-g`: Specifies to launch the training algorithm, with the given number of generations and players, in order
 6. `--debug` or `-d`: Run the command in verbose mode (defaults to `False`)
 
 If you need further help, you can type `tablut_player -h` or `tablut_player --help` in a command line.
@@ -67,4 +66,10 @@ tablut_player White -ap minimax montecarlo
 The following snippet will launch both white and black negamax players, with my player being the white one:
 ```bash
 tablut_player White -ap negamax
+```
+
+**Training**\
+The following snippet will launch the genetic algorithm with 10 generations and 20 player for each generation. In this case the mandatory parameter is ignored. It is also possible to specify the player type, but we recommend using `minimax`:
+```bash
+tablut_player White -g 10 20 -p minimax
 ```

@@ -71,8 +71,11 @@ def parse_args():
         help="choose the players you want to play with", type=str.lower
     )
     parser.add_argument(
-        '-g', '--genetic', dest='genetic', action='store_true',
-        help="train tablut player using a genetic algorithm"
+        '-g', '--genetic', dest='genetic', nargs=2, type=int,
+        help=(
+            "train tablut player using a genetic algorithm, "
+            "given the number of generations and that of players, in order"
+        )
     )
     parser.add_argument(
         '-d', '--debug', dest='debug', action='store_true',
@@ -82,7 +85,10 @@ def parse_args():
     conf.MOVE_TIMEOUT = int(args.timeout)
     conf.SERVER_IP = args.server_ip
     conf.DEBUG = args.debug
-    conf.TRAIN = args.genetic
+    conf.TRAIN = False if args.genetic is None else True
+    if conf.TRAIN:
+        conf.GEN_GENERATIONS = args.genetic[0]
+        conf.GEN_POPULATION = args.genetic[1]
     conf.AUTOPLAY = args.autoplay
     conf.WHITE_PLAYER = PLAYERS[args.players[0]]
     conf.MY_PLAYER = conf.WHITE_PLAYER
@@ -124,7 +130,9 @@ def entry():
         del gui_view
         del gui_scene
     elif conf.TRAIN:
-        gen.genetic_algorithm(ngen=2, pop_number=2)
+        gen.genetic_algorithm(
+            ngen=conf.GEN_GENERATIONS, pop_number=conf.GEN_POPULATION
+        )
     else:
         play()
     sys.exit()
