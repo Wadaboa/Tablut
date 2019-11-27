@@ -4,13 +4,13 @@
 
 ### Linux / MacOS
 In order to correctly install this Tablut client, do the following:
-1. Make sure your current working directory is the `Client/` directory
+1. Make sure your current working directory is the `Client/scripts/unix/` directory
 2. Run `chmod +x init.sh && ./init.sh`
 3. Run `chmod +x CalbiFalai.sh`
 
 ### Windows
 In order to correctly install this Tablut client, do the following:
-1. Make sure your current working directory is the `Client/` directory
+1. Make sure your current working directory is the `Client/scripts/win/` directory
 2. Launch a powershell as administrator
 3. Run `get-executionpolicy -list` to identify the current execution policy settings
 4. Run `set-executionpolicy unrestricted`, if not already set as `Unrestricted`
