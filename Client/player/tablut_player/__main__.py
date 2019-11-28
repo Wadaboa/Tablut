@@ -86,7 +86,7 @@ def parse_args():
     conf.MOVE_TIMEOUT = int(args.timeout)
     conf.SERVER_IP = args.server_ip
     conf.DEBUG = args.debug
-    conf.TRAIN = False if args.genetic is None else True
+    conf.TRAIN = args.genetic is not None
     if conf.TRAIN:
         conf.GEN_GENERATIONS = args.genetic[0]
         conf.GEN_POPULATION = args.genetic[1]
@@ -211,10 +211,10 @@ def play():
                 max_depth=4, tt=ttable, max_it=1000
             )
             print(f'My move: {my_move}')
-            game_state = game.result(game_state, my_move)
             action_queue.put((my_move, game_state.to_move))
             action_queue.join()
             get_state(state_queue)
+            game_state = game.result(game_state, my_move)
             if game.terminal_test(game_state):
                 break
             pawns, _ = get_state(state_queue)

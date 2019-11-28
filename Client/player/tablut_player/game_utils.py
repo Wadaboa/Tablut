@@ -269,7 +269,7 @@ def from_player_type_to_role(player_type):
     '''
     Convert a player type to its respective player role string
     '''
-    return player_type.value.capitalize()
+    return player_type.value.upper()
 
 
 def other_player(player_type):

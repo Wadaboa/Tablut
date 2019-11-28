@@ -3,20 +3,20 @@ Tablut states evaluation functions weights computation
 '''
 
 
-import time
 import bisect
-from multiprocessing import Process, Array
-from datetime import datetime
 import logging
+from multiprocessing import Pool
+from datetime import datetime
 
-import tablut_player.utils as utils
 import tablut_player.config as conf
+import tablut_player.utils as utils
 import tablut_player.strategy as strat
 import tablut_player.heuristic as heu
 from tablut_player.game import TablutGame
 
 
 HEURISTICS_WEIGHTS_RANGE = [0, 20]
+MAX_TURNS = 50
 
 
 def init_logger():
@@ -44,10 +44,11 @@ class TablutPlayer():
     Object representing an evaluated TablutGame player
     '''
 
-    def __init__(self, weights, white_wins=0, black_wins=0):
+    def __init__(self, weights, white_wins=0, black_wins=0, draws=0):
         self.weights = weights
         self.white_wins = white_wins
         self.black_wins = black_wins
+        self.draws = draws
 
     def __eq__(self, other):
         for weight_one, weight_two in zip(self.weights, other.weights):
@@ -57,57 +58,63 @@ class TablutPlayer():
 
     def __str__(self):
         return (
-            f'Weights: {self.weights}\n'
-            f'White wins: {self.white_wins}\n'
-            f'Black wins: {self.black_wins}\n'
+            f'Weights: {self.weights}'
+            f' WW: {self.white_wins}'
+            f' BB: {self.black_wins}'
+            f' D: {self.draws}\n'
         )
 
     def __repr__(self):
         return (
             f'Weights: {self.weights}\n'
             f'White wins: {self.white_wins}\n'
-            f'Black wins: {self.black_wins}'
+            f'Black wins: {self.black_wins}\n'
+            f'Draws: {self.draws}\n'
         )
 
 
-def tournament(population, sleep=3):
+def tournament(population):
     '''
     Play every game between every couple of players in the given population
     '''
     # Play
-    game_num = 0
-    processes = []
+    args = []
     random_player = TablutPlayer(weights=[0] * len(heu.HEURISTICS))
+
     population.append(random_player)
-    results = Array('i', [0] * (len(population) ** 2))
     for player_one in population:
         for player_two in population:
-            if player_one != random_player and player_two != random_player:
-                proc = Process(
-                    target=play,
-                    args=(player_one, player_two, results, game_num)
-                )
-                proc.start()
-                processes.append(proc)
-                game_num += 1
-    time.sleep(sleep)
-    for proc in processes:
-        proc.join()
+            if player_one != random_player or player_two != random_player:
+                if all([weight == 0 for weight in player_one.weights]):
+                    player_one_type = strat.random_player
+                else:
+                    player_one_type = conf.WHITE_PLAYER
+                if all([weight == 0 for weight in player_two.weights]):
+                    player_two_type = strat.random_player
+                else:
+                    player_two_type = conf.BLACK_PLAYER
+            args.append((player_one, player_one_type,
+                         player_two, player_two_type))
+
+    with Pool() as proc:
+        results = proc.starmap(play, args)
+
     population.remove(random_player)
 
     # Collect results
-    game_num = 0
-    for player_one in population:
-        for player_two in population:
-            if results[game_num] == 1:
-                player_one.white_wins += 1
-            elif results[game_num] == -1:
-                player_two.black_wins += 1
-            game_num += 1
+    for game_num, res in enumerate(results):
+        player_one, player_two = args[game_num]
+        if res == 1:
+            player_one.white_wins += 1
+        elif res == -1:
+            player_two.black_wins += 1
+        elif res == 0:
+            player_one.draws += 1
+            player_two.draws += 1
     return population
 
 
-def play(player_one, player_two, results, game_num, max_turns=50):
+def play(player_one, player_one_type, player_two, player_two_type):
     '''
     Play a single game between the given players and store results
     '''
@@ -115,52 +122,36 @@ def play(player_one, player_two, results, game_num, max_turns=50):
     game_state = game.initial
     black_ttable = strat.TT()
     white_ttable = strat.TT()
-    while not game.terminal_test(game_state) and game.turn < max_turns:
+    while not game.terminal_test(game_state) and game.turn < MAX_TURNS:
         if game.turn % 10 == 0:
             black_ttable.clear()
             white_ttable.clear()
         game.inc_turn()
 
-        # Random player check
-        if all([weight == 0 for weight in player_one.weights]):
-            player_type = strat.random_player
-        else:
-            player_type = conf.WHITE_PLAYER
-            heu.set_heuristic_weights(player_one.weights)
+        heu.set_heuristic_weights(player_one.weights)
 
         white_move = strat.get_move(
-            game, game_state, player_type, prev_move=None,
+            game, game_state, player_one_type, prev_move=None,
             timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
             max_depth=4, tt=white_ttable
         )
         game_state = game.result(game_state, white_move)
         if game.terminal_test(game_state):
-            results[game_num] = 1
-            player_one.white_wins += 1
-            break
+            return 1
 
-        # Random player check
-        if all([weight == 0 for weight in player_two.weights]):
-            player_type = strat.random_player
-        else:
-            player_type = conf.BLACK_PLAYER
-            heu.set_heuristic_weights(player_two.weights)
+        heu.set_heuristic_weights(player_two.weights)
 
         black_move = strat.get_move(
-            game, game_state, player_type, prev_move=None,
+            game, game_state, player_two_type, prev_move=None,
             timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
             max_depth=4, tt=black_ttable
         )
         game_state = game.result(game_state, black_move)
         if game.terminal_test(game_state):
-            results[game_num] = -1
-            player_two.black_wins += 1
-            break
-    black_ttable.clear()
-    white_ttable.clear()
-    del black_ttable
-    del white_ttable
-    del game
+            return -1
+    if game.turn >= MAX_TURNS:
+        return MAX_TURNS
+    return 0
 
 
 def find_best_player(player):
@@ -176,7 +167,7 @@ def log_population(logger, population, header=''):
     '''
     string = f'{header}\n'
     for player in population:
-        string += f'{player.weights}\n'
+        string += f'{player}\n'
     logger.info(string)
 
 

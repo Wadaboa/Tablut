@@ -7,8 +7,8 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import QEvent, QRectF, Qt
 from PyQt5.QtGui import QColor, QPen
 
-import tablut_player.game_utils as gutils
 import tablut_player.config as conf
+import tablut_player.game_utils as gutils
 from tablut_player.game_utils import (
     TablutBoardPosition,
     TablutPawnDirection,

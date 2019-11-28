@@ -93,7 +93,7 @@ class Connector(Process):
         action_dict = {
             "from": from_action,
             "to": to_action,
-            "turn": turn[0]
+            "turn": turn
         }
         json_str = json.dumps(action_dict)
         return send_str(self.sock, json_str)
