@@ -95,6 +95,7 @@ class TablutGame(Game):
         self.initial = TablutGameState(
             to_move=to_move,
             utility=0,
+            is_terminal=False,
             pawns=initial_pawns,
             moves=self.player_moves(initial_pawns, to_move),
             old_state=None
@@ -128,7 +129,11 @@ class TablutGame(Game):
         '''
         pawn_types = TablutPawnType.values()
         player_types = TablutPlayerType.values()
-        dim = ((conf.BOARD_SIZE ** 2) * len(pawn_types)) + len(player_types)
+        is_terminal = [True, False]
+        dim = (
+            ((conf.BOARD_SIZE ** 2) * len(pawn_types)) +
+            len(player_types) + len(is_terminal)
+        )
         keys = set()
         random.seed(dim)
         while len(keys) < dim:
@@ -143,6 +148,8 @@ class TablutGame(Game):
                     )[pawn_type] = key
         for player_type in player_types:
             TablutGameState.ZOBRIST_KEYS.to_move[player_type] = keys.pop()
+        for terminal in is_terminal:
+            TablutGameState.ZOBRIST_KEYS.is_terminal[terminal] = keys.pop()
 
     @classmethod
     def _draw(cls, state):
@@ -206,12 +213,15 @@ class TablutGame(Game):
         res = TablutGameState(
             to_move=to_move,
             utility=self._compute_utility(pawns, state.to_move),
+            is_terminal=True,
             pawns=pawns,
             moves=[],
             old_state=state
         )
-        if not self.terminal_test(res) and compute_moves:
-            res.moves = self.player_moves(pawns, to_move)
+        if not self.terminal_test(res):
+            res.is_terminal = False
+            if compute_moves:
+                res.moves = self.player_moves(pawns, to_move)
         return res
 
     def utility(self, state, player):

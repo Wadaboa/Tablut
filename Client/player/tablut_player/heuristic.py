@@ -94,7 +94,7 @@ def king_moves_to_goals(state):
     value = -0.3
     upper_bound = 0.6
     distances = [
-        dis for dis in GOALS_DISTANCES.values() if dis < MAX_KING_MOVES
+        dis for dis in GOALS_DISTANCES.values() if dis < MAX_KING_MOVES_GOALS
     ]
     check_distances = len(distances) > 0
     if distances.count(1) >= 1:
@@ -121,19 +121,31 @@ def black_blocking_chains(state):
     corners_weights = [4 / 10, 6 / 10, 8 / 10, 9 / 10]
     chains = black_chains(state)
     for chain in chains:
-        whites, blacks, corners = blocked_chain_pawns(state, chain)
-        if corners == 0:
-            value = -0.9 + (1 / 12) * blacks
-            return heuristic_pov(state, TPlayerType.BLACK, value)
-        chain_value = corners * corners_weights[corners - 1]
-        if whites > 1:
-            chain_value /= whites
-        if blacks > 2:
-            chain_value -= (chain_value / blacks)
-        value += chain_value
+        if useful_chain(state, chain):
+            whites, blacks, corners = blocked_chain_pawns(state, chain)
+            if corners == 0:
+                value = -0.9 + (1 / 12) * blacks
+                return heuristic_pov(state, TPlayerType.BLACK, value)
+            chain_value = corners * corners_weights[corners - 1]
+            if whites > 1:
+                chain_value /= whites
+            if blacks > 2:
+                chain_value -= (chain_value / blacks)
+            value += chain_value
 
-    value = utils.clip(value, upper_bound)
+    value = utils.clip(value, upper=upper_bound)
     return heuristic_pov(state, TPlayerType.BLACK, value)
+
+
+def useful_chain(state, chain):
+    king = TablutBoard.king_position(state.pawns)
+    tmp_pawns = dict(state.pawns)
+    tmp_pawns[TPawnType.BLACK].difference_update(chain)
+    corners_distances = compute_corners_distances(king, tmp_pawns)
+    for corner in CORNERS:
+        if CORNERS_DISTANCES[corner] > corners_distances[corner]:
+            return True
+    return False
 
 
 def blocked_chain_pawns(state, chain):
@@ -256,6 +268,28 @@ def find_chain(pawn, black_pawns, available_camps, camps_found=0, chain=set()):
     return chain, new_camps_found, black_pawns
 
 
+def white_barriers(state):
+    '''
+    '''
+    value = 0
+    tmp_pawns = dict(state.pawns)
+    tmp_pawns[TPawnType.WHITE].difference_update(CORNERS)
+    for corner, distance in CORNERS_DISTANCES.items():
+        barrier = True
+        if distance <= MAX_KING_MOVES_CORNERS:
+            for black_pawn in tmp_pawns[TPawnType.BLACK]:
+                corner_distance = TablutBoard.simulate_distance(
+                    tmp_pawns, black_pawn, corner,
+                    max_moves=MAX_KING_MOVES_CORNERS
+                )
+                if corner_distance <= MAX_KING_MOVES_CORNERS:
+                    barrier = False
+            if barrier:
+                value = 0.7
+                break
+    return heuristic_pov(state, TPlayerType.WHITE, value)
+
+
 def blocked_goals(state):
     '''
     Return a value representing the number of blocked white goals
@@ -264,7 +298,8 @@ def blocked_goals(state):
     value = 0
     white_pawns, black_pawns = get_pawns(state, king=False)
     free_goals = {
-        pos for pos, dis in GOALS_DISTANCES.items() if dis < MAX_KING_MOVES + 1
+        pos for pos, dis in GOALS_DISTANCES.items()
+        if dis < MAX_KING_MOVES_GOALS + 1
     }
     for pos in TablutBoard.OUTER_CORNERS:
         if pos in black_pawns:
@@ -297,7 +332,9 @@ def king_killers(state):
     )
     possible_killers_count = _reachable_positions(killer_positions, black_moves)
     occupable_free_positions = _reachable_positions(free_positions, black_moves)
-
+    white_neighbors = (
+        4 - (killers + len(free_positions) + len(killer_positions))
+    )
     value = 0
     values = [killers, occupable_free_positions, possible_killers_count]
     weights = [0, 1 / 32, 0]
@@ -321,6 +358,7 @@ def king_killers(state):
         elif killers == 1:
             weights = [1 / 3, 1 / 10, 0]
     if value == 0:
+        value = - white_neighbors * (3 / 40)
         for val, weight in zip(values, weights):
             value += (val * weight)
     return heuristic_pov(state, TPlayerType.BLACK, value)
@@ -372,9 +410,27 @@ def _init_goals_distances(state):
     king = TablutBoard.king_position(state.pawns)
     for goal in TablutBoard.WHITE_GOALS:
         GOALS_DISTANCES[goal] = TablutBoard.simulate_distance(
-            state.pawns, king, goal, max_moves=MAX_KING_MOVES,
+            state.pawns, king, goal, max_moves=MAX_KING_MOVES_GOALS,
             unwanted_positions=TablutBoard.WHITE_GOALS
         )
+
+
+def _init_corners_distances(state):
+    global CORNERS_DISTANCES
+    king = TablutBoard.king_position(state.pawns)
+    tmp_pawns = dict(state.pawns)
+    CORNERS_DISTANCES = compute_corners_distances(king, tmp_pawns)
+
+
+def compute_corners_distances(pawn, pawns):
+    corners_distances = dict(CORNERS_DISTANCES)
+    for corner in CORNERS:
+        if corner not in pawns[TPawnType.BLACK]:
+            pawns[TPawnType.WHITE].discard(corner)
+            corners_distances[corner] = TablutBoard.simulate_distance(
+                pawns, pawn, corner, max_moves=MAX_KING_MOVES_CORNERS
+            )
+    return corners_distances
 
 
 HEURISTICS = {
@@ -383,14 +439,19 @@ HEURISTICS = {
     potential_kills: 0.5,
     king_moves_to_goals: 1,
     king_killers: 2,
-    black_blocking_chains: 10,
-    pawns_in_corners: 1
+    black_blocking_chains: 5,
+    pawns_in_corners: 1,
+    white_barriers: 5
 }
 
-MAX_KING_MOVES = 4
-GOALS_DISTANCES = {goal: MAX_KING_MOVES + 1 for goal in TablutBoard.WHITE_GOALS}
+MAX_KING_MOVES_GOALS = 4
+MAX_KING_MOVES_CORNERS = 10
+GOALS_DISTANCES = {
+    goal: MAX_KING_MOVES_GOALS + 1 for goal in TablutBoard.WHITE_GOALS
+}
 CORNERS_INDEXES = [0, conf.BOARD_SIZE - 1]
 CORNERS = [TBPos(i, j) for i in CORNERS_INDEXES for j in CORNERS_INDEXES]
+CORNERS_DISTANCES = {corner: MAX_KING_MOVES_CORNERS + 1 for corner in CORNERS}
 
 
 def set_heuristic_weights(weights):
@@ -402,6 +463,12 @@ def set_heuristic_weights(weights):
         HEURISTICS[heu] = weight
 
 
+def print_heuristic(state):
+    for heur in HEURISTICS:
+        print(f'{heur.__name__}: {heur(state)}')
+    print(f'VALUE: {heuristic(state)}')
+
+
 def heuristic(state):
     '''
     Game state evaluation function, in range [-100, 100].
@@ -410,8 +477,9 @@ def heuristic(state):
     if TablutGame.terminal_test(state):
         if state.utility != 0:
             return state.utility * 1000
-        return 0
+        return -999
     _init_goals_distances(state)
+    _init_corners_distances(state)
     good_weights = 0
     score = 0
     for heu, weigth in HEURISTICS.items():
@@ -419,4 +487,7 @@ def heuristic(state):
         if value != 0:
             good_weights += weigth
         score += value * weigth
-    return int((score * 100) / good_weights)
+    return (
+        int((score * 100) / good_weights) if good_weights > 0
+        else int(score * 100)
+    )

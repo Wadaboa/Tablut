@@ -16,7 +16,7 @@ from tablut_player.game import TablutGame
 
 
 HEURISTICS_WEIGHTS_RANGE = [0, 20]
-MAX_TURNS = 50
+MAX_TURNS = 20
 
 
 def init_logger():
@@ -44,11 +44,13 @@ class TablutPlayer():
     Object representing an evaluated TablutGame player
     '''
 
-    def __init__(self, weights, white_wins=0, black_wins=0, draws=0):
+    def __init__(self, weights,
+                 white_wins=0, black_wins=0, draws=0, num_games=-1):
         self.weights = weights
         self.white_wins = white_wins
         self.black_wins = black_wins
         self.draws = draws
+        self.num_games = num_games
 
     def __eq__(self, other):
         for weight_one, weight_two in zip(self.weights, other.weights):
@@ -56,12 +58,19 @@ class TablutPlayer():
                 return False
         return True
 
+    def __hash__(self):
+        return hash(tuple(self.weights))
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __str__(self):
         return (
-            f'Weights: {self.weights}'
+            f'W: {self.weights}'
             f' WW: {self.white_wins}'
-            f' BB: {self.black_wins}'
-            f' D: {self.draws}\n'
+            f' BW: {self.black_wins}'
+            f' D: {self.draws}'
+            f' NG: {self.num_games}\n'
         )
 
     def __repr__(self):
@@ -70,6 +79,7 @@ class TablutPlayer():
             f'White wins: {self.white_wins}\n'
             f'Black wins: {self.black_wins}\n'
             f'Draws: {self.draws}\n'
+            f'Number of games: {self.num_games}\n'
         )
 
 
@@ -80,8 +90,8 @@ def tournament(population):
     # Play
     args = []
     random_player = TablutPlayer(weights=[0] * len(heu.HEURISTICS))
-
-    population.append(random_player)
+    results = []
+    population.add(random_player)
     for player_one in population:
         for player_two in population:
             if player_one != random_player or player_two != random_player:
@@ -93,17 +103,22 @@ def tournament(population):
                     player_two_type = strat.random_player
                 else:
                     player_two_type = conf.BLACK_PLAYER
-            args.append((player_one, player_one_type,
-                         player_two, player_two_type))
+                args.append((player_one, player_one_type,
+                             player_two, player_two_type))
 
     with Pool() as proc:
-        results = proc.starmap(play, args)
+        try:
+            results = proc.starmap(play, args)
+        except Exception as exp:
+            print(exp)
+            proc.terminate()
+            proc.join()
 
     population.remove(random_player)
 
     # Collect results
     for game_num, res in enumerate(results):
-        player_one, player_two = args[game_num]
+        player_one, _, player_two, _ = args[game_num]
         if res == 1:
             player_one.white_wins += 1
         elif res == -1:
@@ -111,6 +126,8 @@ def tournament(population):
         elif res == 0:
             player_one.draws += 1
             player_two.draws += 1
+        player_one.num_games += 1
+        player_two.num_games += 1
     return population
 
 
@@ -122,6 +139,7 @@ def play(player_one, player_one_type, player_two, player_two_type):
     game_state = game.initial
     black_ttable = strat.TT()
     white_ttable = strat.TT()
+    winner = 0
     while not game.terminal_test(game_state) and game.turn < MAX_TURNS:
         if game.turn % 10 == 0:
             black_ttable.clear()
@@ -133,25 +151,29 @@ def play(player_one, player_one_type, player_two, player_two_type):
         white_move = strat.get_move(
             game, game_state, player_one_type, prev_move=None,
             timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
-            max_depth=4, tt=white_ttable
+            max_depth=0, tt=white_ttable
         )
         game_state = game.result(game_state, white_move)
         if game.terminal_test(game_state):
-            return 1
+            winner = 1
+            break
 
         heu.set_heuristic_weights(player_two.weights)
 
         black_move = strat.get_move(
             game, game_state, player_two_type, prev_move=None,
             timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
-            max_depth=4, tt=black_ttable
+            max_depth=0, tt=black_ttable
         )
         game_state = game.result(game_state, black_move)
         if game.terminal_test(game_state):
-            return -1
+            winner = -1
+            break
     if game.turn >= MAX_TURNS:
-        return MAX_TURNS
-    return 0
+        winner = MAX_TURNS
+    black_ttable.clear()
+    white_ttable.clear()
+    return winner
 
 
 def find_best_player(player):
@@ -175,10 +197,11 @@ def genetic_algorithm(ngen=10,
                       pop_number=10,
                       gene_pool=HEURISTICS_WEIGHTS_RANGE,
                       num_weights=len(heu.HEURISTICS),
-                      pmut=0.3):
+                      pmut=0.4):
     '''
     Perform the given number of tournaments, with evolving populations
     '''
+    utils.set_random_seed()
     logger = init_logger()
     f_thresh = int(0.90 * ((pop_number + 1) ** 2) - 1)
     population = init_population(
@@ -191,14 +214,13 @@ def genetic_algorithm(ngen=10,
     for i in range(ngen):
         population = tournament(population)
         log_population(logger, population, header=f'End tournament {i}')
-
-        population = next_generation(
-            population, find_best_player, gene_pool, f_thresh, pmut
-        )
-
-        if isinstance(population, TablutPlayer):
-            log_population(logger, [population], header=f'Best player')
-            break
+        if i < ngen - 1:
+            population = next_generation(
+                population, find_best_player, gene_pool, f_thresh, pmut
+            )
+            if isinstance(population, TablutPlayer):
+                log_population(logger, [population], header=f'Best player')
+                break
 
     if isinstance(population, list):
         log_population(logger, population, header=f'Last population')
@@ -213,15 +235,17 @@ def next_generation(population, fitness_fn, gene_pool, f_thresh, pmut):
     fittest_individual = fitness_threshold(fitness_fn, f_thresh, population)
     if fittest_individual:
         return fittest_individual
-    population = [
-        mutate(
-            recombine_uniform(*weighted_select(2, population, fitness_fn)),
-            gene_pool,
-            pmut
+    new_population = set()
+    while len(new_population) < len(population):
+        new_population.add(
+            mutate(
+                recombine_uniform(*weighted_select(2, population, fitness_fn)),
+                gene_pool,
+                pmut
+            )
         )
-        for _ in range(len(population))
-    ]
-    return population
+
+    return new_population
 
 
 def fitness_threshold(fitness_fn, f_thresh, population):
@@ -240,15 +264,14 @@ def init_population(pop_number, gene_pool, num_weights):
     '''
     Initializes population for genetic algorithm
     '''
-    population = []
-    utils.set_random_seed()
-    population.append(TablutPlayer(weights=list(heu.HEURISTICS.values())))
-    for _ in range(pop_number - 1):
+    population = set()
+    population.add(TablutPlayer(weights=list(heu.HEURISTICS.values())))
+    while len(population) < pop_number:
         new_weights = [
             utils.get_rand_double(gene_pool[0], gene_pool[-1])
             for _ in range(num_weights)
         ]
-        population.append(TablutPlayer(weights=new_weights))
+        population.add(TablutPlayer(weights=new_weights))
     return population
 
 
@@ -257,8 +280,9 @@ def weighted_select(num, population, fitness_fn):
     Select the best num players from the given population,
     weighted on the given fitness function
     '''
-    fitnesses = map(fitness_fn, population)
-    return weighted_sample_with_replacement(num, population, fitnesses)
+    pop = list(population)
+    fitnesses = map(fitness_fn, pop)
+    return weighted_sample_with_replacement(num, pop, fitnesses)
 
 
 def weighted_sample_with_replacement(num, seq, weights):
@@ -322,9 +346,7 @@ def mutate(x, gene_pool, pmut):
     '''
     if not utils.probability(pmut):
         return x
-
     val = utils.get_rand_int(0, len(x.weights))
-    utils.set_random_seed()
     new_gene = utils.get_rand_double(gene_pool[0], gene_pool[-1])
     new_weights = x.weights[:val] + [new_gene] + x.weights[val + 1:]
     return TablutPlayer(weights=new_weights)

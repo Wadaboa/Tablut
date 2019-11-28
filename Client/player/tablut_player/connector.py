@@ -2,7 +2,6 @@
 Module that helps connecting to Tablut server
 '''
 
-
 import struct
 import json
 import socket
@@ -149,8 +148,14 @@ def receive_int(sock):
     '''
     Read a 4 bytes integer from the given socket
     '''
-    header = sock.recv(4, socket.MSG_WAITALL)
-    return int.from_bytes(header, byteorder='big')
+    size = 4
+    header = b''
+    while len(header) < size:
+        data = sock.recv(size - len(header))
+        if not data:
+            break
+        header += data
+    return struct.unpack("!i", header)[0]
 
 
 def receive_str(sock):

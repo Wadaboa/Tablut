@@ -145,6 +145,7 @@ def autoplay(gui):
     '''
     game = TablutGame()
     game_state = game.initial
+    heu.print_heuristic(game_state)
     update_gui(gui, game_state.pawns)
     white_ttable = strat.TT()
     black_ttable = strat.TT()
@@ -159,7 +160,9 @@ def autoplay(gui):
             timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
             max_depth=4, tt=white_ttable, max_it=1000
         )
+        print(f'White move: {white_move}')
         game_state = game.result(game_state, white_move)
+        heu.print_heuristic(game_state)
         update_gui(gui, game_state.pawns)
         if game.terminal_test(game_state):
             break
@@ -168,7 +171,9 @@ def autoplay(gui):
             timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
             max_depth=4, tt=black_ttable, max_it=1000
         )
+        print(f'Black move: {black_move}')
         game_state = game.result(game_state, black_move)
+        heu.print_heuristic(game_state)
         update_gui(gui, game_state.pawns)
     winner = game.utility(
         game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
@@ -182,6 +187,7 @@ def play():
     '''
     game = TablutGame()
     game_state = game.initial
+    heu.print_heuristic(game_state)
     ttable = strat.TT()
     enemy_move = None
     try:
@@ -201,7 +207,9 @@ def play():
             enemy_move = gutils.from_pawns_to_move(
                 game_state.pawns, pawns, game_state.to_move
             )
+            print(f'Enemy move: {enemy_move}')
             game_state = game.result(game_state, enemy_move)
+            heu.print_heuristic(game_state)
         while not game.terminal_test(game_state):
             game.inc_turn()
             print(f'Turn {game.turn}')
@@ -215,6 +223,7 @@ def play():
             action_queue.join()
             get_state(state_queue)
             game_state = game.result(game_state, my_move)
+            heu.print_heuristic(game_state)
             if game.terminal_test(game_state):
                 break
             pawns, _ = get_state(state_queue)
@@ -223,6 +232,7 @@ def play():
             )
             print(f'Enemy move: {enemy_move}')
             game_state = game.result(game_state, enemy_move)
+            heu.print_heuristic(game_state)
     except Exception:
         print(traceback.format_exc())
     finally:

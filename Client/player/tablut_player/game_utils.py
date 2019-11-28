@@ -9,7 +9,7 @@ from enum import Enum
 import tablut_player.config as conf
 
 
-ZobristKeys = namedtuple('ZobristKeys', 'board, to_move')
+ZobristKeys = namedtuple('ZobristKeys', 'board, to_move, is_terminal')
 
 
 class TablutGameState:
@@ -17,17 +17,24 @@ class TablutGameState:
     Tablut game state
     '''
 
-    ZOBRIST_KEYS = ZobristKeys(board={}, to_move={})
+    ZOBRIST_KEYS = ZobristKeys(board={}, to_move={}, is_terminal={})
 
-    def __init__(self, to_move, utility, pawns, moves=[], old_state=None):
+    def __init__(self, to_move, utility, pawns,
+                 is_terminal=False, moves=[], old_state=None):
         self.to_move = to_move
         self.utility = utility
+        self.is_terminal = is_terminal
         self.pawns = pawns
         self.moves = moves
         self.old_state = old_state
 
     def __eq__(self, other):
-        return self.pawns == other.pawns and self.to_move == other.to_move
+        return (
+            self.pawns == other.pawns and
+            self.to_move == other.to_move and
+            self.is_terminal == other.is_terminal and
+            self.utility == other.utility
+        )
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -51,6 +58,7 @@ class TablutGameState:
 
     def __hash__(self):
         val = self.ZOBRIST_KEYS.to_move[self.to_move]
+        val ^= self.ZOBRIST_KEYS.is_terminal[self.is_terminal]
         for pawn_type in self.pawns:
             for pawn_position in self.pawns[pawn_type]:
                 val ^= self.ZOBRIST_KEYS.board[pawn_position][pawn_type]
