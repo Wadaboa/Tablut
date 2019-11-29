@@ -448,7 +448,7 @@ def monte_carlo(game, state, timeout, max_it):
         '''
         Expand the leaf node by adding all its children states
         '''
-        if not node.children and not game.terminal_test(node.state):
+        if not node.children and not node.state.is_terminal:
             node.children = {
                 MCTNode(state=game.result(node.state, action), parent=node):
                 action for action in game.actions(node.state)
@@ -460,7 +460,7 @@ def monte_carlo(game, state, timeout, max_it):
         Simulate the utility of current state by random picking a step
         '''
         player = game.to_move(state)
-        while not game.terminal_test(state):
+        while not state.is_terminal:
             action = get_random_move(state)
             state = game.result(state, action)
         return -game.utility(state, player)
@@ -536,7 +536,7 @@ def alphabeta_cutoff(game, state, depth, start_time, timeout):
     '''
     return (
         depth == 0 or
-        game.terminal_test(state) or
+        state.is_terminal or
         not in_time(start_time, timeout)
     )
 

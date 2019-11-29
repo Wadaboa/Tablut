@@ -161,18 +161,20 @@ class TablutGame(Game):
         first = state
         second = state.old_state
         for i in range(0, int(cls.MAX_REPEATED_STATES)):
+            if second is None:
+                return False
             for pawn_type in TablutPawnType.values():
-                if second is None:
+                if len(first.pawns[pawn_type]) != len(second.pawns[pawn_type]):
                     return False
                 if i < cls.MAX_REPEATED_STATES / 2:
                     pawn_difference.setdefault(pawn_type, set()).update(
-                        first.pawns[pawn_type].difference(
+                        first.pawns[pawn_type].symmetric_difference(
                             second.pawns[pawn_type]
                         )
                     )
                 else:
                     pawn_difference[pawn_type].difference_update(
-                        second.pawns[pawn_type].difference(
+                        second.pawns[pawn_type].symmetric_difference(
                             first.pawns[pawn_type]
                         )
                     )

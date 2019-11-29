@@ -140,7 +140,7 @@ def play(player_one, player_one_type, player_two, player_two_type):
     black_ttable = strat.TT()
     white_ttable = strat.TT()
     winner = 0
-    while not game.terminal_test(game_state) and game.turn < MAX_TURNS:
+    while not game_state.is_terminal and game.turn < MAX_TURNS:
         if game.turn % 10 == 0:
             black_ttable.clear()
             white_ttable.clear()
@@ -153,7 +153,7 @@ def play(player_one, player_one_type, player_two, player_two_type):
             timeout=conf.MOVE_TIMEOUT, max_depth=0, tt=white_ttable
         )
         game_state = game.result(game_state, white_move)
-        if game.terminal_test(game_state):
+        if game_state.is_terminal:
             winner = 1
             break
 
@@ -164,7 +164,7 @@ def play(player_one, player_one_type, player_two, player_two_type):
             timeout=conf.MOVE_TIMEOUT, max_depth=0, tt=black_ttable
         )
         game_state = game.result(game_state, black_move)
-        if game.terminal_test(game_state):
+        if game_state.is_terminal:
             winner = -1
             break
     if game.turn >= MAX_TURNS:

@@ -8,6 +8,7 @@ import sys
 import threading
 import traceback
 import timeit
+import time
 from multiprocessing import JoinableQueue
 
 from PyQt5 import QtWidgets
@@ -151,7 +152,7 @@ def autoplay(gui):
     update_gui(gui, game_state.pawns)
     white_ttable = strat.TT()
     black_ttable = strat.TT()
-    while not game.terminal_test(game_state):
+    while not game_state.is_terminal:
         if game.turn % 10 == 0:
             black_ttable.clear()
             white_ttable.clear()
@@ -165,7 +166,8 @@ def autoplay(gui):
         game_state = game.result(game_state, white_move)
         heu.print_heuristic(game_state)
         update_gui(gui, game_state.pawns)
-        if game.terminal_test(game_state):
+        time.sleep(3)
+        if game_state.is_terminal:
             break
         black_move = get_move(
             game, game_state, conf.BLACK_PLAYER, prev_move=None,
@@ -175,6 +177,7 @@ def autoplay(gui):
         game_state = game.result(game_state, black_move)
         heu.print_heuristic(game_state)
         update_gui(gui, game_state.pawns)
+        time.sleep(3)
     winner = game.utility(
         game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
     )
@@ -211,7 +214,7 @@ def play():
             game_state = game.result(game_state, enemy_move)
             heu.print_heuristic(game_state)
         elapsed_time = 0
-        while not game.terminal_test(game_state):
+        while not game_state.is_terminal:
             game.inc_turn()
             print(f'Turn {game.turn}')
             conf.MOVE_TIMEOUT = (
@@ -229,7 +232,7 @@ def play():
             game_state = game.result(game_state, my_move)
             elapsed_time = timeit.default_timer() - start_time
             heu.print_heuristic(game_state)
-            if game.terminal_test(game_state):
+            if game_state.is_terminal:
                 break
             pawns, _ = get_state(state_queue)
             enemy_move = gutils.from_pawns_to_move(

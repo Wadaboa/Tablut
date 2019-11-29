@@ -492,7 +492,7 @@ def heuristic(state):
     Game state evaluation function, in range [-100, 100].
     Values 1000 and -1000 are used as winning and losing scores
     '''
-    if TablutGame.terminal_test(state):
+    if state.is_terminal:
         if state.utility != 0:
             return state.utility * 1000
         return -999
