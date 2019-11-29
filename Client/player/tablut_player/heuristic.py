@@ -3,6 +3,8 @@ Tablut states evaluation functions
 '''
 
 
+import sys
+
 import tablut_player.utils as utils
 import tablut_player.game_utils as gutils
 import tablut_player.config as conf
@@ -13,6 +15,9 @@ from tablut_player.game_utils import (
     TablutPawnType as TPawnType,
     TablutPlayerType as TPlayerType
 )
+
+
+THIS = sys.modules[__name__]
 
 
 def heuristic_pov(state, pov, value):
@@ -138,6 +143,11 @@ def black_blocking_chains(state):
 
 
 def useful_chain(state, chain):
+    '''
+    Return if the given chain is useful in the sense that the king
+    could reach the examined corner before the chain was present,
+    and now it is blocked
+    '''
     king = TablutBoard.king_position(state.pawns)
     tmp_pawns = dict(state.pawns)
     tmp_pawns[TPawnType.BLACK].difference_update(chain)
@@ -407,6 +417,9 @@ def pawns_in_corners(state):
 
 
 def _init_goals_distances(state):
+    '''
+    Compute king distances to goals
+    '''
     king = TablutBoard.king_position(state.pawns)
     for goal in TablutBoard.WHITE_GOALS:
         GOALS_DISTANCES[goal] = TablutBoard.simulate_distance(
@@ -416,13 +429,18 @@ def _init_goals_distances(state):
 
 
 def _init_corners_distances(state):
-    global CORNERS_DISTANCES
+    '''
+    Compute king distances to corners
+    '''
     king = TablutBoard.king_position(state.pawns)
     tmp_pawns = dict(state.pawns)
-    CORNERS_DISTANCES = compute_corners_distances(king, tmp_pawns)
+    THIS.CORNERS_DISTANCES = compute_corners_distances(king, tmp_pawns)
 
 
 def compute_corners_distances(pawn, pawns):
+    '''
+    Compute pawn distances to goals
+    '''
     corners_distances = dict(CORNERS_DISTANCES)
     for corner in CORNERS:
         if corner not in pawns[TPawnType.BLACK]:

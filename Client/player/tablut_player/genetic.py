@@ -150,8 +150,7 @@ def play(player_one, player_one_type, player_two, player_two_type):
 
         white_move = strat.get_move(
             game, game_state, player_one_type, prev_move=None,
-            timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
-            max_depth=0, tt=white_ttable
+            timeout=conf.MOVE_TIMEOUT, max_depth=0, tt=white_ttable
         )
         game_state = game.result(game_state, white_move)
         if game.terminal_test(game_state):
@@ -162,8 +161,7 @@ def play(player_one, player_one_type, player_two, player_two_type):
 
         black_move = strat.get_move(
             game, game_state, player_two_type, prev_move=None,
-            timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
-            max_depth=0, tt=black_ttable
+            timeout=conf.MOVE_TIMEOUT, max_depth=0, tt=black_ttable
         )
         game_state = game.result(game_state, black_move)
         if game.terminal_test(game_state):

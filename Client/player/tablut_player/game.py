@@ -8,6 +8,7 @@ from typing import overload
 import random
 
 import tablut_player.game_utils as gutils
+import tablut_player.utils as utils
 import tablut_player.config as conf
 from tablut_player.game_utils import (
     TablutBoardPosition,
@@ -135,7 +136,7 @@ class TablutGame(Game):
             len(player_types) + len(is_terminal)
         )
         keys = set()
-        random.seed(dim)
+        utils.set_random_seed(dim)
         while len(keys) < dim:
             keys.add(random.getrandbits(64))
         for i in range(conf.BOARD_SIZE):

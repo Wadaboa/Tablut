@@ -4,13 +4,19 @@ Tablut players search strategies
 
 
 import math
-import time
+import timeit
+import sys
 
+import tablut_player.config as conf
 import tablut_player.game_utils as gutils
 import tablut_player.utils as utils
 import tablut_player.heuristic as heu
 from tablut_player.utils import INF
 from tablut_player.game_utils import TablutBoardPosition as TBPos
+
+
+THIS = sys.modules[__name__]
+BEST_MOVE = None
 
 
 # ______________________________________________________________________________
@@ -146,15 +152,17 @@ class TTEntry:
     Transposition table entry
     '''
 
-    def __init__(self, key, moves, value, depth):
-        self.key = key
+    def __init__(self, state_key, player_key, moves, value, depth):
+        self.state_key = state_key
+        self.player_key = player_key
         self.moves = moves
         self.value = value
         self.depth = depth
 
     def __repr__(self):
         return (
-            f'Key: {self.key}\n'
+            f'State key: {self.state_key}\n'
+            f'Player key: {self.player_key}\n'
             f'Moves: {self.moves}\n'
             f'Value: {self.value}\n'
             f'Depth: {self.depth}'
@@ -174,9 +182,12 @@ class TT:
         Return the transposition table entry of the given state,
         if it exists
         '''
-        hash_value = hash(state)
-        entry = self.table.get(hash_value)
-        if entry is not None and entry.key == hash_value:
+        player_key = state.ZOBRIST_KEYS.to_move[state.to_move]
+        state_key = hash(state)
+        entry = self.table.get((state_key, player_key))
+        if (entry is not None and
+                entry.state_key == state_key and
+                entry.player_key == player_key):
             return entry
         return None
 
@@ -200,13 +211,16 @@ class TT:
         '''
         Store the given entry in the transposition table
         '''
-        self.table[entry.key] = entry
+        self.table[(entry.state_key, entry.player_key)] = entry
 
     def store_exp_entry(self, state, moves, value, depth):
         '''
         Store the given entry in the transposition table
         '''
-        entry = TTEntry(hash(state), moves, value, depth)
+        entry = TTEntry(
+            hash(state), state.ZOBRIST_KEYS.to_move[state.to_move],
+            moves, value, depth
+        )
         self.store_entry(entry)
 
     def clear(self):
@@ -288,7 +302,7 @@ def minimax_alphabeta(game, state, timeout, max_depth, tt):
         tt.store_exp_entry(state, moves, v, depth)
         return v
 
-    start_time = time.time()
+    start_time = timeit.default_timer()
     best_score = -INF
     beta = INF
     best_move = None
@@ -302,6 +316,7 @@ def minimax_alphabeta(game, state, timeout, max_depth, tt):
             if v > best_score:
                 best_score = v
                 best_move = move
+                THIS.BEST_MOVE = move
                 if best_score == 1000:
                     return best_move
                 moves.remove(best_move)
@@ -337,11 +352,12 @@ def failsoft_negamax_alphabeta(game, state, timeout, max_depth,
             if current_value > best_value:
                 best_value = current_value
                 best_move = move
+                THIS.BEST_MOVE = move
                 if best_value >= beta:
                     return best_value, best_move
         return best_value, best_move
 
-    start_time = time.time()
+    start_time = timeit.default_timer()
     return negamax(state, max_depth, alpha=alpha, beta=beta)
 
 
@@ -393,6 +409,7 @@ def negascout_alphabeta(game, state, timeout, max_depth, alpha=-INF, beta=INF):
                 if adaptive_beta == beta or depth < 3 or current_value >= beta:
                     best_value = current_value
                     best_move = move
+                    THIS.BEST_MOVE = move
                 else:
                     negative_best_value, _ = negascout(
                         state=new_state,
@@ -406,7 +423,7 @@ def negascout_alphabeta(game, state, timeout, max_depth, alpha=-INF, beta=INF):
                 adaptive_beta = max(alpha, best_value) + 1
         return best_value, best_move
 
-    start_time = time.time()
+    start_time = timeit.default_timer()
     return negascout(state, max_depth, alpha=alpha, beta=beta)
 
 
@@ -458,7 +475,7 @@ def monte_carlo(game, state, timeout, max_it):
         if node.parent is not None:
             backprop(node.parent, -utility)
 
-    start_time = time.time()
+    start_time = timeit.default_timer()
     root = MCTNode(state=state)
     for curr_it in range(max_it):
         if not monte_carlo_cutoff(start_time, timeout, curr_it, max_it):
@@ -500,7 +517,7 @@ def in_time(start_time, timeout):
     '''
     Check if there's no time left
     '''
-    return time.time() - start_time < timeout
+    return timeit.default_timer() - start_time < timeout
 
 
 def get_random_move(state, seed=None):
@@ -578,8 +595,13 @@ def get_move(game, state, player, prev_move=None, **kwargs):
     '''
     Compute a move with the given player
     '''
-    move = (
-        first_move(state, prev_move) if game.turn < 2
-        else player(game, state, **kwargs)
-    )
+    THIS.BEST_MOVE = None
+    try:
+        player = utils.timeout(conf.MOVE_TIMEOUT)(player)
+        move = (
+            first_move(state, prev_move) if game.turn < 2
+            else player(game, state, **kwargs)
+        )
+    except TimeoutError:
+        move = BEST_MOVE
     return move if move is not None else random_player(game, state)

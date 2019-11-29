@@ -7,6 +7,7 @@ import argparse
 import sys
 import threading
 import traceback
+import timeit
 from multiprocessing import JoinableQueue
 
 from PyQt5 import QtWidgets
@@ -56,7 +57,7 @@ def parse_args():
     parser.add_argument(
         '-t', '--timeout', dest='timeout', action='store',
         help='given time to compute each move',
-        default=conf.MOVE_TIMEOUT
+        default=conf.GIVEN_MOVE_TIMEOUT
     )
     parser.add_argument(
         '-s', '--server-ip', dest='server_ip', action='store',
@@ -83,7 +84,8 @@ def parse_args():
         help='run the command in debug mode'
     )
     args = parser.parse_args()
-    conf.MOVE_TIMEOUT = int(args.timeout)
+    conf.GIVEN_MOVE_TIMEOUT = int(args.timeout)
+    conf.MOVE_TIMEOUT = conf.GIVEN_MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD
     conf.SERVER_IP = args.server_ip
     conf.DEBUG = args.debug
     conf.TRAIN = args.genetic is not None
@@ -157,8 +159,7 @@ def autoplay(gui):
         print(f'Turn {game.turn}')
         white_move = get_move(
             game, game_state, conf.WHITE_PLAYER, prev_move=None,
-            timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
-            max_depth=4, tt=white_ttable, max_it=1000
+            timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=white_ttable, max_it=1000
         )
         print(f'White move: {white_move}')
         game_state = game.result(game_state, white_move)
@@ -168,8 +169,7 @@ def autoplay(gui):
             break
         black_move = get_move(
             game, game_state, conf.BLACK_PLAYER, prev_move=None,
-            timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
-            max_depth=4, tt=black_ttable, max_it=1000
+            timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=black_ttable, max_it=1000
         )
         print(f'Black move: {black_move}')
         game_state = game.result(game_state, black_move)
@@ -210,19 +210,24 @@ def play():
             print(f'Enemy move: {enemy_move}')
             game_state = game.result(game_state, enemy_move)
             heu.print_heuristic(game_state)
+        elapsed_time = 0
         while not game.terminal_test(game_state):
             game.inc_turn()
             print(f'Turn {game.turn}')
+            conf.MOVE_TIMEOUT = (
+                conf.GIVEN_MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD - elapsed_time
+            )
             my_move = get_move(
                 game, game_state, conf.MY_PLAYER, prev_move=None,
-                timeout=conf.MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD,
-                max_depth=4, tt=ttable, max_it=1000
+                timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=ttable, max_it=1000
             )
             print(f'My move: {my_move}')
+            start_time = timeit.default_timer()
             action_queue.put((my_move, game_state.to_move))
             action_queue.join()
             get_state(state_queue)
             game_state = game.result(game_state, my_move)
+            elapsed_time = timeit.default_timer() - start_time
             heu.print_heuristic(game_state)
             if game.terminal_test(game_state):
                 break
