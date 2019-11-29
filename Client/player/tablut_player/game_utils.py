@@ -327,3 +327,23 @@ def from_move_to_server_action(move):
     from_action = f'{chr(ord("`") + (from_move.col + 1))}{from_move.row + 1}'
     to_action = f'{chr(ord("`") + (to_move.col + 1))}{to_move.row + 1}'
     return from_action, to_action
+
+
+def clone_pawns(pawns):
+    '''
+    Clone the given pawns and return that copy
+    '''
+    new_pawns = dict()
+    for pawn_type, pawns_set in pawns.items():
+        new_pawns[pawn_type] = set(pawns_set)
+    return new_pawns
+
+
+def pawn_in_pawns(pawns, pawn):
+    '''
+    Return if the given pawn is the given dictionary of pawns
+    '''
+    for pawn_type in pawns:
+        if pawn in pawns[pawn_type]:
+            return True
+    return False

@@ -23,8 +23,7 @@ BEST_MOVE = None
 # Opening moves
 
 WHITE_OPENINGS = [
-    (TBPos.create(row=4, col=2), TBPos.create(row=7, col=2)),
-    (TBPos.create(row=4, col=2), TBPos.create(row=8, col=2))
+    (TBPos.create(row=4, col=2), TBPos.create(row=7, col=2))
 ]
 BLACK_OPENINGS = {
     (TBPos.create(row=4, col=2), TBPos.create(row=5, col=2)): [
@@ -246,7 +245,7 @@ def minimax_alphabeta(game, state, timeout, max_depth, tt):
         )
         moves = state.moves
 
-        if alphabeta_cutoff(game, state, depth, start_time, timeout):
+        if alphabeta_cutoff(state, depth, start_time, timeout):
             if entry is not None and entry.depth == depth:
                 value = entry.value
             else:
@@ -278,7 +277,7 @@ def minimax_alphabeta(game, state, timeout, max_depth, tt):
         )
         moves = state.moves
 
-        if alphabeta_cutoff(game, state, depth, start_time, timeout):
+        if alphabeta_cutoff(state, depth, start_time, timeout):
             if entry is not None and entry.depth == depth:
                 value = entry.value
             else:
@@ -307,20 +306,35 @@ def minimax_alphabeta(game, state, timeout, max_depth, tt):
     beta = INF
     best_move = None
     moves = state.moves
-    for current_depth in range(0, max_depth + 1, 2):
+    safe_moves = []
+    survival_mode = False
+    for current_depth in range(0, max_depth + 1, 1):
         for move in moves:
             v = min_value(
                 game.result(state, move, compute_moves=False),
                 current_depth, alpha=best_score, beta=beta
             )
+            if current_depth == 1:
+                if v != -1000:
+                    safe_moves.append((v, move))
+                else:
+                    survival_mode = True
             if v > best_score:
                 best_score = v
                 best_move = move
-                THIS.BEST_MOVE = move
-                if best_score == 1000:
-                    return best_move
+                if not survival_mode:
+                    THIS.BEST_MOVE = move
+                    if best_score == 1000:
+                        return best_move
                 moves.remove(best_move)
                 moves.insert(0, best_move)
+
+        if (survival_mode and
+                len(safe_moves) > 0 and best_move not in safe_moves):
+            print('SURVIVAL MODE')
+            best_move = min(safe_moves, key=lambda tup: tup[0])
+            THIS.BEST_MOVE = best_move
+
     return best_move
 
 
@@ -336,7 +350,7 @@ def failsoft_negamax_alphabeta(game, state, timeout, max_depth,
     '''
 
     def negamax(state, depth, alpha, beta):
-        if alphabeta_cutoff(game, state, depth, start_time, timeout):
+        if alphabeta_cutoff(state, depth, start_time, timeout):
             return heu.heuristic(state), None
         best_move = None
         best_value = -INF
@@ -391,7 +405,7 @@ def negascout_alphabeta(game, state, timeout, max_depth, alpha=-INF, beta=INF):
     '''
 
     def negascout(state, depth, alpha, beta):
-        if alphabeta_cutoff(game, state, depth, start_time, timeout):
+        if alphabeta_cutoff(state, depth, start_time, timeout):
             return heu.heuristic(state), None
         best_move = None
         best_value = -INF
@@ -528,7 +542,7 @@ def get_random_move(state, seed=None):
     return utils.get_rand(state.moves)
 
 
-def alphabeta_cutoff(game, state, depth, start_time, timeout):
+def alphabeta_cutoff(state, depth, start_time, timeout):
     '''
     Cut the search when the given state in the search tree is a final state,
     when there's no time left, or when the search depth has reached
@@ -536,8 +550,7 @@ def alphabeta_cutoff(game, state, depth, start_time, timeout):
     '''
     return (
         depth == 0 or
-        state.is_terminal or
-        not in_time(start_time, timeout)
+        state.is_terminal
     )
 
 

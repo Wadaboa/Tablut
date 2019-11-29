@@ -306,31 +306,47 @@ class TablutBoard():
         to reach the given final coordinates, by ignoring oppenent moves
         and applying the given maximum number of moves
         '''
-        if n_moves == max_moves or initial_coords == final_coords:
+        if initial_coords == final_coords:
             return n_moves
-        if initial_coords in unwanted_positions:
+        if n_moves == max_moves or gutils.pawn_in_pawns(pawns, final_coords):
             return max_moves + 1
-        moves = cls.legal_moves(pawns, initial_coords)
+        moves = cls.legal_moves(pawns, initial_coords).difference(
+            set(unwanted_positions)
+        )
         if len(moves) <= 0:
             return max_moves + 1
         moves_counter = []
         for move in moves:
-            if (initial_coords.distance(final_coords) >
-                    move.distance(final_coords)):
-                moves_counter.append(
-                    cls.simulate_distance(
-                        pawns,
-                        move,
-                        final_coords,
-                        max_moves,
-                        unwanted_positions,
-                        n_moves + 1
-                    )
+            moves_counter.append(
+                cls.simulate_distance(
+                    pawns,
+                    move,
+                    final_coords,
+                    max_moves,
+                    unwanted_positions,
+                    n_moves + 1
                 )
+            )
         min_moves = max_moves + 1
         if len(moves_counter) > 0:
             min_moves = min(moves_counter)
         return min_moves
+
+    @classmethod
+    def dfs(cls, pawns, initial_coords, final_coords):
+        '''
+        Apply depth first search to reach the given position
+        '''
+        frontier = cls.legal_moves(pawns, initial_coords)
+        explored = {initial_coords}
+        while frontier:
+            move = frontier.pop()
+            if move == final_coords:
+                return True
+            if move not in explored:
+                frontier.update(cls.legal_moves(pawns, move))
+            explored.add(move)
+        return False
 
     @classmethod
     def orthogonal_k_neighbors(cls, pawn, k=1):

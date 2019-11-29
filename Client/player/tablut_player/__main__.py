@@ -18,7 +18,7 @@ import tablut_player.game_utils as gutils
 import tablut_player.strategy as strat
 import tablut_player.genetic as gen
 import tablut_player.heuristic as heu
-from tablut_player.board import TablutBoardGUI
+from tablut_player.board import TablutBoardGUI, TablutBoard
 from tablut_player.game import TablutGame
 from tablut_player.strategy import get_move
 from tablut_player.connector import Connector
@@ -166,7 +166,6 @@ def autoplay(gui):
         game_state = game.result(game_state, white_move)
         heu.print_heuristic(game_state)
         update_gui(gui, game_state.pawns)
-        time.sleep(3)
         if game_state.is_terminal:
             break
         black_move = get_move(
@@ -177,11 +176,14 @@ def autoplay(gui):
         game_state = game.result(game_state, black_move)
         heu.print_heuristic(game_state)
         update_gui(gui, game_state.pawns)
-        time.sleep(3)
-    winner = game.utility(
-        game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
-    )
-    print('WIN' if winner == 1 else 'LOSE' if winner == -1 else 'DRAW')
+
+    if game_state.is_terminal:
+        winner = game.utility(
+            game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
+        )
+        print('WIN' if winner == 1 else 'LOSE' if winner == -1 else 'DRAW')
+    else:
+        print('ERROR')
 
 
 def play():
@@ -246,10 +248,14 @@ def play():
     finally:
         conn.terminate()
         conn.join()
-    winner = game.utility(
-        game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
-    )
-    print('WIN' if winner == 1 else 'LOSE' if winner == -1 else 'DRAW')
+
+    if game_state.is_terminal:
+        winner = game.utility(
+            game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
+        )
+        print('WIN' if winner == 1 else 'LOSE' if winner == -1 else 'DRAW')
+    else:
+        print('ERROR')
 
 
 def update_gui(gui, pawns):
@@ -271,32 +277,15 @@ def test_state():
     '''
     initial_pawns = {
         gutils.TablutPawnType.WHITE: {
-            gutils.TablutBoardPosition.create(6, 1),
-            gutils.TablutBoardPosition.create(7, 1),
-            gutils.TablutBoardPosition.create(7, 8),
-            gutils.TablutBoardPosition.create(2, 4),
             gutils.TablutBoardPosition.create(3, 4),
+            gutils.TablutBoardPosition.create(4, 3),
+            gutils.TablutBoardPosition.create(5, 3),
             gutils.TablutBoardPosition.create(4, 5),
-            gutils.TablutBoardPosition.create(4, 6),
-            gutils.TablutBoardPosition.create(5, 4)
+            gutils.TablutBoardPosition.create(5, 5)
+
         },
         gutils.TablutPawnType.BLACK: {
-            gutils.TablutBoardPosition.create(5, 2),
-            gutils.TablutBoardPosition.create(6, 3),
-            gutils.TablutBoardPosition.create(6, 4),
-            gutils.TablutBoardPosition.create(6, 5),
-            gutils.TablutBoardPosition.create(6, 7),
-            gutils.TablutBoardPosition.create(7, 6),
-            gutils.TablutBoardPosition.create(8, 5),
-            gutils.TablutBoardPosition.create(8, 4),
-            gutils.TablutBoardPosition.create(7, 4),
-            gutils.TablutBoardPosition.create(8, 8),
-            gutils.TablutBoardPosition.create(4, 8),
-            gutils.TablutBoardPosition.create(3, 8),
-            gutils.TablutBoardPosition.create(1, 2),
-            gutils.TablutBoardPosition.create(0, 4),
-            gutils.TablutBoardPosition.create(4, 1),
-            gutils.TablutBoardPosition.create(0, 2)
+            gutils.TablutBoardPosition.create(4, 0)
         },
         gutils.TablutPawnType.KING: {gutils.TablutBoardPosition.create(4, 4)}
     }

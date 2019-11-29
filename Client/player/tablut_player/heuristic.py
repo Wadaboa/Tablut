@@ -80,7 +80,7 @@ def potential_kills(state):
         set(black_pawns).union({TablutBoard.CASTLE}, TablutBoard.OUTER_CAMPS),
         white_pawns
     )
-    value = black_dead - white_dead
+    value = float(black_dead - white_dead)
     if value < 0:
         value = -1 - (1 / value)
     elif value > 0:
@@ -106,7 +106,7 @@ def king_moves_to_goals(state):
         value = 0.99 if distances.count(1) > 1 else 0.9
         check_distances = False
     if check_distances:
-        value = 0
+        value = 0.0
         distances.sort()
         for ind, distance in enumerate(distances):
             tmp = (2 ** (-ind - 1)) / distance
@@ -121,7 +121,7 @@ def black_blocking_chains(state):
     Return a value representing the number of chained black pawns,
     that are blocking goal positions, in range [-1, 1]
     '''
-    value = 0
+    value = 0.0
     upper_bound = 0.9
     corners_weights = [4 / 10, 6 / 10, 8 / 10, 9 / 10]
     chains = black_chains(state)
@@ -149,11 +149,11 @@ def useful_chain(state, chain):
     and now it is blocked
     '''
     king = TablutBoard.king_position(state.pawns)
-    tmp_pawns = dict(state.pawns)
+    tmp_pawns = gutils.clone_pawns(state.pawns)
     tmp_pawns[TPawnType.BLACK].difference_update(chain)
-    corners_distances = compute_corners_distances(king, tmp_pawns)
+    reachable_corners = compute_reachable_corners(king, tmp_pawns)
     for corner in CORNERS:
-        if CORNERS_DISTANCES[corner] > corners_distances[corner]:
+        if not REACHABLE_CORNERS[corner] and reachable_corners[corner]:
             return True
     return False
 
@@ -280,20 +280,20 @@ def find_chain(pawn, black_pawns, available_camps, camps_found=0, chain=set()):
 
 def white_barriers(state):
     '''
+    Return a value representing the number of corners reachable by the king
+    and not by the black pawns, in range [-1, 1]
     '''
-    value = 0
-    tmp_pawns = dict(state.pawns)
+    value = 0.0
+    tmp_pawns = gutils.clone_pawns(state.pawns)
     tmp_pawns[TPawnType.WHITE].difference_update(CORNERS)
-    for corner, distance in CORNERS_DISTANCES.items():
+    for corner, king_reach in REACHABLE_CORNERS.items():
         barrier = True
-        if distance <= MAX_KING_MOVES_CORNERS:
+        if king_reach:
             for black_pawn in tmp_pawns[TPawnType.BLACK]:
-                corner_distance = TablutBoard.simulate_distance(
-                    tmp_pawns, black_pawn, corner,
-                    max_moves=MAX_KING_MOVES_CORNERS
-                )
-                if corner_distance <= MAX_KING_MOVES_CORNERS:
+                black_reach = TablutBoard.dfs(tmp_pawns, black_pawn, corner)
+                if black_reach:
                     barrier = False
+                    break
             if barrier:
                 value = 0.7
                 break
@@ -305,7 +305,7 @@ def blocked_goals(state):
     Return a value representing the number of blocked white goals
     for each corner, in range [-1, 1]
     '''
-    value = 0
+    value = 0.0
     white_pawns, black_pawns = get_pawns(state, king=False)
     free_goals = {
         pos for pos, dis in GOALS_DISTANCES.items()
@@ -345,7 +345,7 @@ def king_killers(state):
     white_neighbors = (
         4 - (killers + len(free_positions) + len(killer_positions))
     )
-    value = 0
+    value = 0.0
     values = [killers, occupable_free_positions, possible_killers_count]
     weights = [0, 1 / 32, 0]
     if (TablutBoard.is_king_in_castle(state.pawns) or
@@ -367,7 +367,7 @@ def king_killers(state):
             weights = [1 / 4, 1 / 10, 0]
         elif killers == 1:
             weights = [1 / 3, 1 / 10, 0]
-    if value == 0:
+    if value == 0.0:
         value = - white_neighbors * (3 / 40)
         for val, weight in zip(values, weights):
             value += (val * weight)
@@ -403,7 +403,7 @@ def pawns_in_corners(state):
     Return a value representing the number of player and enemy pawns
     in the extreme corners, in range [-1, 1]
     '''
-    value = 0
+    value = 0.0
     player_pawns = TablutBoard.player_pawns(
         state.pawns, gutils.other_player(state.to_move)
     )
@@ -428,27 +428,25 @@ def _init_goals_distances(state):
         )
 
 
-def _init_corners_distances(state):
+def _init_reachable_corners(state):
     '''
-    Compute king distances to corners
+    Compute if the king can reach the corners
     '''
     king = TablutBoard.king_position(state.pawns)
-    tmp_pawns = dict(state.pawns)
-    THIS.CORNERS_DISTANCES = compute_corners_distances(king, tmp_pawns)
+    tmp_pawns = gutils.clone_pawns(state.pawns)
+    THIS.REACHABLE_CORNERS = compute_reachable_corners(king, tmp_pawns)
 
 
-def compute_corners_distances(pawn, pawns):
+def compute_reachable_corners(pawn, pawns):
     '''
     Compute pawn distances to goals
     '''
-    corners_distances = dict(CORNERS_DISTANCES)
+    reachable_corners = dict()
     for corner in CORNERS:
         if corner not in pawns[TPawnType.BLACK]:
             pawns[TPawnType.WHITE].discard(corner)
-            corners_distances[corner] = TablutBoard.simulate_distance(
-                pawns, pawn, corner, max_moves=MAX_KING_MOVES_CORNERS
-            )
-    return corners_distances
+            reachable_corners[corner] = TablutBoard.dfs(pawns, pawn, corner)
+    return reachable_corners
 
 
 HEURISTICS = {
@@ -463,13 +461,12 @@ HEURISTICS = {
 }
 
 MAX_KING_MOVES_GOALS = 4
-MAX_KING_MOVES_CORNERS = 10
 GOALS_DISTANCES = {
     goal: MAX_KING_MOVES_GOALS + 1 for goal in TablutBoard.WHITE_GOALS
 }
 CORNERS_INDEXES = [0, conf.BOARD_SIZE - 1]
 CORNERS = [TBPos(i, j) for i in CORNERS_INDEXES for j in CORNERS_INDEXES]
-CORNERS_DISTANCES = {corner: MAX_KING_MOVES_CORNERS + 1 for corner in CORNERS}
+REACHABLE_CORNERS = {corner: False for corner in CORNERS}
 
 
 def set_heuristic_weights(weights):
@@ -482,9 +479,9 @@ def set_heuristic_weights(weights):
 
 
 def print_heuristic(state):
+    print(f'VALUE: {heuristic(state)}')
     for heur in HEURISTICS:
         print(f'{heur.__name__}: {heur(state)}')
-    print(f'VALUE: {heuristic(state)}')
 
 
 def heuristic(state):
@@ -497,12 +494,12 @@ def heuristic(state):
             return state.utility * 1000
         return -999
     _init_goals_distances(state)
-    _init_corners_distances(state)
+    _init_reachable_corners(state)
     good_weights = 0
-    score = 0
+    score = 0.0
     for heu, weigth in HEURISTICS.items():
         value = heu(state)
-        if value != 0:
+        if value != 0.0:
             good_weights += weigth
         score += value * weigth
     return (

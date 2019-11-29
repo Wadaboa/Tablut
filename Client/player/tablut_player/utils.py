@@ -160,7 +160,7 @@ class InterruptableThread(threading.Thread):
     '''
 
     def __init__(self, func, *args, **kwargs):
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, daemon=True)
         self._func = func
         self._args = args
         self._kwargs = kwargs
@@ -184,7 +184,7 @@ def timeout(seconds):
     def decorate(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            thr = InterruptableThread(func, *args, **kwargs)
+            thr = InterruptableThread(func, * args, **kwargs)
             thr.start()
             thr.join(seconds)
             if not thr.is_alive():
