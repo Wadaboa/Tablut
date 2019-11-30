@@ -345,7 +345,7 @@ class TablutBoard():
                 return True
             if move not in explored:
                 frontier.update(cls.legal_moves(pawns, move))
-            explored.add(move)
+                explored.add(move)
         return False
 
     @classmethod

@@ -159,15 +159,16 @@ class InterruptableThread(threading.Thread):
     Thread that can be interrupted
     '''
 
-    def __init__(self, func, *args, **kwargs):
+    def __init__(self, func, kill, *args, **kwargs):
         threading.Thread.__init__(self, daemon=True)
+        self._kill = kill
         self._func = func
         self._args = args
         self._kwargs = kwargs
         self._result = None
 
     def run(self):
-        self._result = self._func(*self._args, **self._kwargs)
+        self._result = self._func(self._kill, *self._args, **self._kwargs)
 
     @property
     def result(self):
@@ -184,11 +185,14 @@ def timeout(seconds):
     def decorate(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            thr = InterruptableThread(func, * args, **kwargs)
+            kill = threading.Event()
+            thr = InterruptableThread(func, kill, *args, **kwargs)
             thr.start()
             thr.join(seconds)
             if not thr.is_alive():
                 return thr.result
+            kill.set()
+            thr.join()
             raise TimeoutError('Execution expired.')
         return wrapper
     return decorate

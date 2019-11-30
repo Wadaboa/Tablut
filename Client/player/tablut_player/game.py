@@ -206,6 +206,15 @@ class TablutGame(Game):
             for move in self.actions(state)
         ]
 
+    def will_king_be_dead(self, state):
+        '''
+        Check if the king will be dead in the next possible states
+        '''
+        return any([
+            TablutBoard.king_position(new_state.pawns) is None
+            for new_state in self.next_states(state)
+        ])
+
     def result(self, state, move, compute_moves=True):
         '''
         Return the next state with the given move and

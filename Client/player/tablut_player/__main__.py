@@ -176,7 +176,6 @@ def autoplay(gui):
         game_state = game.result(game_state, black_move)
         heu.print_heuristic(game_state)
         update_gui(gui, game_state.pawns)
-
     if game_state.is_terminal:
         winner = game.utility(
             game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
@@ -192,6 +191,7 @@ def play():
     '''
     game = TablutGame()
     game_state = game.initial
+    print(game_state)
     heu.print_heuristic(game_state)
     ttable = strat.TT()
     enemy_move = None
@@ -214,6 +214,7 @@ def play():
             )
             print(f'Enemy move: {enemy_move}')
             game_state = game.result(game_state, enemy_move)
+            print(game_state)
             heu.print_heuristic(game_state)
         elapsed_time = 0
         while not game_state.is_terminal:
@@ -233,6 +234,7 @@ def play():
             get_state(state_queue)
             game_state = game.result(game_state, my_move)
             elapsed_time = timeit.default_timer() - start_time
+            print(game_state)
             heu.print_heuristic(game_state)
             if game_state.is_terminal:
                 break
@@ -242,6 +244,7 @@ def play():
             )
             print(f'Enemy move: {enemy_move}')
             game_state = game.result(game_state, enemy_move)
+            print(game_state)
             heu.print_heuristic(game_state)
     except Exception:
         print(traceback.format_exc())
@@ -277,15 +280,35 @@ def test_state():
     '''
     initial_pawns = {
         gutils.TablutPawnType.WHITE: {
+            gutils.TablutBoardPosition.create(2, 3),
+            gutils.TablutBoardPosition.create(2, 4),
             gutils.TablutBoardPosition.create(3, 4),
-            gutils.TablutBoardPosition.create(4, 3),
-            gutils.TablutBoardPosition.create(5, 3),
+            gutils.TablutBoardPosition.create(3, 2),
             gutils.TablutBoardPosition.create(4, 5),
-            gutils.TablutBoardPosition.create(5, 5)
+            gutils.TablutBoardPosition.create(4, 6),
+            gutils.TablutBoardPosition.create(5, 4),
+            gutils.TablutBoardPosition.create(6, 4),
 
         },
         gutils.TablutPawnType.BLACK: {
-            gutils.TablutBoardPosition.create(4, 0)
+            gutils.TablutBoardPosition.create(0, 3),
+            gutils.TablutBoardPosition.create(0, 4),
+            gutils.TablutBoardPosition.create(0, 5),
+            gutils.TablutBoardPosition.create(1, 7),
+            gutils.TablutBoardPosition.create(3, 0),
+            gutils.TablutBoardPosition.create(4, 0),
+            gutils.TablutBoardPosition.create(5, 0),
+            gutils.TablutBoardPosition.create(4, 1),
+            gutils.TablutBoardPosition.create(4, 1),
+            gutils.TablutBoardPosition.create(3, 8),
+            gutils.TablutBoardPosition.create(4, 8),
+            gutils.TablutBoardPosition.create(5, 8),
+            gutils.TablutBoardPosition.create(4, 7),
+            gutils.TablutBoardPosition.create(7, 4),
+            gutils.TablutBoardPosition.create(8, 4),
+            gutils.TablutBoardPosition.create(8, 5),
+            gutils.TablutBoardPosition.create(8, 0),
+
         },
         gutils.TablutPawnType.KING: {gutils.TablutBoardPosition.create(4, 4)}
     }
