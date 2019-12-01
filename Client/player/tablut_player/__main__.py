@@ -148,7 +148,9 @@ def autoplay(gui):
     '''
     game = TablutGame()
     game_state = game.initial
-    heu.print_heuristic(game_state)
+    game_state = test_state()
+    game.turn = 10
+    heu.print_heuristic(game, game_state)
     update_gui(gui, game_state.pawns)
     white_ttable = strat.TT()
     black_ttable = strat.TT()
@@ -164,7 +166,7 @@ def autoplay(gui):
         )
         print(f'White move: {white_move}')
         game_state = game.result(game_state, white_move)
-        heu.print_heuristic(game_state)
+        heu.print_heuristic(game, game_state)
         update_gui(gui, game_state.pawns)
         if game_state.is_terminal:
             break
@@ -174,7 +176,7 @@ def autoplay(gui):
         )
         print(f'Black move: {black_move}')
         game_state = game.result(game_state, black_move)
-        heu.print_heuristic(game_state)
+        heu.print_heuristic(game, game_state)
         update_gui(gui, game_state.pawns)
     if game_state.is_terminal:
         winner = game.utility(
@@ -192,7 +194,7 @@ def play():
     game = TablutGame()
     game_state = game.initial
     print(game_state)
-    heu.print_heuristic(game_state)
+    heu.print_heuristic(game, game_state)
     ttable = strat.TT()
     enemy_move = None
     try:
@@ -215,7 +217,7 @@ def play():
             print(f'Enemy move: {enemy_move}')
             game_state = game.result(game_state, enemy_move)
             print(game_state)
-            heu.print_heuristic(game_state)
+            heu.print_heuristic(game, game_state)
         elapsed_time = 0
         while not game_state.is_terminal:
             game.inc_turn()
@@ -235,7 +237,7 @@ def play():
             game_state = game.result(game_state, my_move)
             elapsed_time = timeit.default_timer() - start_time
             print(game_state)
-            heu.print_heuristic(game_state)
+            heu.print_heuristic(game, game_state)
             if game_state.is_terminal:
                 break
             pawns, _ = get_state(state_queue)
@@ -245,7 +247,7 @@ def play():
             print(f'Enemy move: {enemy_move}')
             game_state = game.result(game_state, enemy_move)
             print(game_state)
-            heu.print_heuristic(game_state)
+            heu.print_heuristic(game, game_state)
     except Exception:
         print(traceback.format_exc())
     finally:
@@ -286,26 +288,12 @@ def test_state():
             gutils.TablutBoardPosition.create(4, 3),
             gutils.TablutBoardPosition.create(4, 2),
             gutils.TablutBoardPosition.create(2, 5),
-            gutils.TablutBoardPosition.create(3, 4),
-            gutils.TablutBoardPosition.create(2, 4),
 
         },
         gutils.TablutPawnType.BLACK: {
-            gutils.TablutBoardPosition.create(4, 7),
-            gutils.TablutBoardPosition.create(8, 3),
-            gutils.TablutBoardPosition.create(4, 1),
-            gutils.TablutBoardPosition.create(5, 5),
-            gutils.TablutBoardPosition.create(4, 8),
             gutils.TablutBoardPosition.create(3, 0),
-            gutils.TablutBoardPosition.create(8, 4),
             gutils.TablutBoardPosition.create(3, 8),
-            gutils.TablutBoardPosition.create(7, 4),
-            gutils.TablutBoardPosition.create(0, 5),
-            gutils.TablutBoardPosition.create(5, 0),
-            gutils.TablutBoardPosition.create(0, 4),
-            gutils.TablutBoardPosition.create(0, 3),
-            gutils.TablutBoardPosition.create(5, 8),
-            gutils.TablutBoardPosition.create(4, 0)
+            gutils.TablutBoardPosition.create(8, 5),
 
         },
         gutils.TablutPawnType.KING: {gutils.TablutBoardPosition.create(4, 4)}
@@ -315,5 +303,7 @@ def test_state():
         player,
         0,
         initial_pawns,
-        moves=TablutGame.player_moves(initial_pawns, player)
+        is_terminal=False,
+        moves=TablutGame.player_moves(initial_pawns, player),
+        old_state=None
     )
