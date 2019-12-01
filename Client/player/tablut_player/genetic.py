@@ -137,11 +137,16 @@ def play(player_one, player_one_type, player_two, player_two_type):
     '''
     game = TablutGame()
     game_state = game.initial
+    heu_tt_white = strat.TT()
+    heu_tt_black = strat.TT()
     black_ttable = strat.TT()
     white_ttable = strat.TT()
     winner = 0
     while not game_state.is_terminal and game.turn < MAX_TURNS:
         if game.turn % 10 == 0:
+            heu_tt_white.clear()
+            heu_tt_black.clear()
+        if game.turn % 5 == 0:
             black_ttable.clear()
             white_ttable.clear()
         game.inc_turn()
@@ -150,7 +155,8 @@ def play(player_one, player_one_type, player_two, player_two_type):
 
         white_move = strat.get_move(
             game, game_state, player_one_type, prev_move=None,
-            timeout=conf.MOVE_TIMEOUT, max_depth=0, tt=white_ttable
+            timeout=conf.MOVE_TIMEOUT, max_depth=0, tt=white_ttable,
+            heu_tt=heu_tt_white, max_it=1000
         )
         game_state = game.result(game_state, white_move)
         if game_state.is_terminal:
@@ -161,7 +167,8 @@ def play(player_one, player_one_type, player_two, player_two_type):
 
         black_move = strat.get_move(
             game, game_state, player_two_type, prev_move=None,
-            timeout=conf.MOVE_TIMEOUT, max_depth=0, tt=black_ttable
+            timeout=conf.MOVE_TIMEOUT, max_depth=0, tt=black_ttable,
+            heu_tt=heu_tt_black, max_it=1000
         )
         game_state = game.result(game_state, black_move)
         if game_state.is_terminal:
