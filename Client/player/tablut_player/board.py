@@ -306,13 +306,11 @@ class TablutBoard():
         to reach the given final coordinates, by ignoring oppenent moves
         and applying the given maximum number of moves
         '''
-        if initial_coords == final_coords:
+        if n_moves < max_moves and initial_coords == final_coords:
             return n_moves
-        if n_moves == max_moves or gutils.pawn_in_pawns(pawns, final_coords):
+        if n_moves == max_moves or initial_coords in unwanted_positions:
             return max_moves + 1
-        moves = cls.legal_moves(pawns, initial_coords).difference(
-            set(unwanted_positions)
-        )
+        moves = cls.legal_moves(pawns, initial_coords)
         if len(moves) <= 0:
             return max_moves + 1
         moves_counter = []

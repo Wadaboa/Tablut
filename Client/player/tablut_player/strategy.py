@@ -5,7 +5,6 @@ Tablut players search strategies
 
 import math
 import timeit
-import sys
 
 import tablut_player.config as conf
 import tablut_player.game_utils as gutils
@@ -16,7 +15,6 @@ from tablut_player.utils import INF
 from tablut_player.game_utils import TablutBoardPosition as TBPos
 
 
-THIS = sys.modules[__name__]
 BEST_MOVE = None
 
 
@@ -304,6 +302,7 @@ def minimax_alphabeta(kill, game, state, max_depth, tt):
         tt.store_exp_entry(state, moves, v, depth)
         return v
 
+    global BEST_MOVE
     best_score = -INF
     beta = INF
     best_move = None
@@ -319,7 +318,7 @@ def minimax_alphabeta(kill, game, state, max_depth, tt):
             if v > best_score:
                 best_score = v
                 best_move = moves[i]
-                THIS.BEST_MOVE = moves[i]
+                BEST_MOVE = moves[i]
                 if current_depth == 0 and best_score == 1000:
                     return best_move
                 if not kill.is_set():
@@ -358,11 +357,12 @@ def failsoft_negamax_alphabeta(kill, game, state, max_depth,
             if current_value > best_value:
                 best_value = current_value
                 best_move = move
-                THIS.BEST_MOVE = move
+                BEST_MOVE = move
                 if best_value >= beta:
                     return best_value, best_move
         return best_value, best_move
 
+    global BEST_MOVE
     return negamax(state, max_depth, alpha=alpha, beta=beta)
 
 
@@ -393,7 +393,7 @@ def negascout_alphabeta(kill, game, state, max_depth, alpha=-INF, beta=INF):
                 if adaptive_beta == beta or depth < 3 or current_value >= beta:
                     best_value = current_value
                     best_move = move
-                    THIS.BEST_MOVE = move
+                    BEST_MOVE = move
                 else:
                     negative_best_value, _ = negascout(
                         state=new_state,
@@ -407,6 +407,7 @@ def negascout_alphabeta(kill, game, state, max_depth, alpha=-INF, beta=INF):
                 adaptive_beta = max(alpha, best_value) + 1
         return best_value, best_move
 
+    global BEST_MOVE
     return negascout(state, max_depth, alpha=alpha, beta=beta)
 
 
@@ -530,17 +531,21 @@ def white_survival(game, state):
     '''
     Return a move that blocks black player winning situation
     '''
-    alert = False
-    for move in game.actions(state):
-        new_state = game.result(state, move)
-        _, black_to_move = move
-        if TablutBoard.king_position(new_state.pawns) is None:
-            alert = True
-            for white_from_move, white_to_move in state.moves:
-                if black_to_move == white_to_move:
-                    return (white_from_move, white_to_move)
-    if alert:
-        return utils.get_rand(state.pawns[gutils.TablutPawnType.KING])
+    good_moves = [(m, 0) for m in game.actions(state)]
+    initial_len = len(good_moves)
+    for i, white_move in enumerate(game.actions(state)):
+        new_state_by_white = game.result(state, white_move, compute_moves=True)
+        for black_move in game.actions(new_state_by_white):
+            new_state_by_black = game.result(new_state_by_white, black_move)
+            if game.will_king_be_dead_by_move(new_state_by_black, black_move):
+                del good_moves[i]
+            else:
+                value = heu.piece_difference(new_state_by_black)
+                m, v = good_moves[i]
+                good_moves[i] = (m, min(v, value))
+    if len(good_moves) < initial_len:
+        best, _ = min(good_moves, key=lambda tup: tup[1])
+        return best
     return None
 
 
@@ -611,17 +616,19 @@ def get_move(game, state, player, prev_move=None, **kwargs):
     '''
     Compute a move with the given player
     '''
-    THIS.BEST_MOVE = None
+    global BEST_MOVE
+    BEST_MOVE = None
     try:
         player = utils.timeout(conf.MOVE_TIMEOUT)(player)
         move = (
-            black_survival(state)
-            if state.to_move == gutils.TablutPlayerType.BLACK
+            first_move(state, prev_move) if game.turn < 2
+            else black_survival(state) if (
+                state.to_move == gutils.TablutPlayerType.BLACK
+            )
             else white_survival(game, state)
         )
         move = (
             move if move is not None
-            else first_move(state, prev_move) if game.turn < 2
             else player(game, state, **kwargs)
         )
     except TimeoutError:
