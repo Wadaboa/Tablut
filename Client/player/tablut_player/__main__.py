@@ -154,25 +154,30 @@ def autoplay(gui):
     update_gui(gui, game_state.pawns)
     white_ttable = strat.TT()
     black_ttable = strat.TT()
+    heu_tt = strat.TT()
     while not game_state.is_terminal:
+        black_ttable.clear()
+        white_ttable.clear()
         if game.turn % 10 == 0:
-            black_ttable.clear()
-            white_ttable.clear()
+            heu_tt.clear()
         game.inc_turn()
         print(f'Turn {game.turn}')
         white_move = get_move(
             game, game_state, conf.WHITE_PLAYER, prev_move=None,
-            timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=white_ttable, max_it=1000
+            timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=white_ttable,
+            heu_tt=heu_tt, max_it=1000
         )
         print(f'White move: {white_move}')
+        return
         game_state = game.result(game_state, white_move)
         heu.print_heuristic(game, game_state)
         update_gui(gui, game_state.pawns)
         if game_state.is_terminal:
             break
         black_move = get_move(
-            game, game_state, conf.BLACK_PLAYER, prev_move=None,
-            timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=black_ttable, max_it=1000
+            game, game_state, conf.WHITE_PLAYER, prev_move=None,
+            timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=black_ttable,
+            heu_tt=heu_tt, max_it=1000
         )
         print(f'Black move: {black_move}')
         game_state = game.result(game_state, black_move)
@@ -196,6 +201,7 @@ def play():
     print(game_state)
     heu.print_heuristic(game, game_state)
     ttable = strat.TT()
+    heu_tt = strat.TT()
     enemy_move = None
     try:
         state_queue = JoinableQueue(2)
@@ -227,7 +233,8 @@ def play():
             )
             my_move = get_move(
                 game, game_state, conf.MY_PLAYER, prev_move=None,
-                timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=ttable, max_it=1000
+                timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=ttable,
+                heu_tt=heu_tt, max_it=1000
             )
             print(f'My move: {my_move}')
             start_time = timeit.default_timer()

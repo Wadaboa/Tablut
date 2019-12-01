@@ -150,19 +150,19 @@ class TTEntry:
     Transposition table entry
     '''
 
-    def __init__(self, state_key, player_key, moves, value, height):
+    def __init__(self, state_key, player_key, value, moves=None, height=None):
         self.state_key = state_key
         self.player_key = player_key
-        self.moves = moves
         self.value = value
+        self.moves = moves
         self.height = height
 
     def __repr__(self):
         return (
             f'State key: {self.state_key}\n'
             f'Player key: {self.player_key}\n'
-            f'Moves: {self.moves}\n'
             f'Value: {self.value}\n'
+            f'Moves: {self.moves}\n'
             f'Height: {self.height}'
         )
 
@@ -211,13 +211,13 @@ class TT:
         '''
         self.table[(entry.state_key, entry.player_key)] = entry
 
-    def store_exp_entry(self, state, moves, value, height):
+    def store_exp_entry(self, state, value, moves=None, height=None):
         '''
         Store the given entry in the transposition table
         '''
         entry = TTEntry(
             hash(state), state.ZOBRIST_KEYS.to_move[state.to_move],
-            moves, value, height
+            value, moves, height
         )
         self.store_entry(entry)
 
@@ -231,7 +231,7 @@ class TT:
 # ______________________________________________________________________________
 # Minimax algorithm
 
-def minimax_alphabeta(kill, game, state, max_depth, tt):
+def minimax_alphabeta(kill, game, state, max_depth, tt, heu_tt):
     '''
     Iterative deepening minimax with alpha-beta pruning and transposition tables
     '''
@@ -242,35 +242,39 @@ def minimax_alphabeta(kill, game, state, max_depth, tt):
             entry.moves if entry is not None and entry.moves is not None
             else game.player_moves(state.pawns, state.to_move)
         )
-        moves = state.moves
+        max_moves = state.moves
 
         if alphabeta_cutoff(kill, state, depth):
-            value = heu.heuristic(game, state, color)
+            heu_entry = heu_tt.get_entry(state)
+            value = (
+                heu_entry.value if heu_entry is not None
+                else heu.heuristic(game, state, color)
+            )
             print(f'HEU_MAX:{value}')
-            tt.store_exp_entry(state, moves, value, height)
+            heu_tt.store_exp_entry(state, value)
             return value
         elif entry is not None and entry.height == depth:
             value = entry.value
             print(f'TT_MAX:{value}')
+            return value
         v = -INF
-        for i in range(len(moves)):
+        for i in range(len(max_moves)):
+            print(max_moves[i])
             value = min_value(
-                game.result(state, moves[i], compute_moves=False), height,
+                game.result(state, max_moves[i], compute_moves=False), height,
                 depth - 1, alpha=alpha, beta=beta
             )
-            if value == -1000 or value == 1000:
-                print('heremax')
-                losing_moves.append(moves[i])
             if value > v:
                 v = value
-                moves[:] = [moves[i]] + moves[:i] + moves[i + 1:]
-            if v >= beta:
-                tt.store_exp_entry(state, moves, v, height)
-                return v
+                max_moves[:] = (
+                    [max_moves[i]] + max_moves[:i] + max_moves[i + 1:]
+                )
+                if v >= beta:
+                    return v
             alpha = max(alpha, v)
             if kill.is_set():
                 break
-        tt.store_exp_entry(state, moves, v, height)
+        tt.store_exp_entry(state, v, max_moves, height)
         return v
 
     def min_value(state, height, depth, alpha, beta):
@@ -279,48 +283,53 @@ def minimax_alphabeta(kill, game, state, max_depth, tt):
             entry.moves if entry is not None and entry.moves is not None
             else game.player_moves(state.pawns, state.to_move)
         )
-        moves = state.moves
+        min_moves = state.moves
 
         if alphabeta_cutoff(kill, state, depth):
-            value = heu.heuristic(game, state, color)
-            tt.store_exp_entry(state, moves, value, height)
+            heu_entry = heu_tt.get_entry(state)
+            value = (
+                heu_entry.value if heu_entry is not None
+                else heu.heuristic(game, state, color)
+            )
             print(f'HEU_MIN:{value}')
-            return value
+            heu_tt.store_exp_entry(state, value)
         elif entry is not None and entry.height == depth:
             value = entry.value
             print(f'TT_MIN:{value}')
+            return value
         v = INF
-        for i in range(len(moves)):
+        for i in range(len(min_moves)):
+            print(min_moves[i])
             value = max_value(
-                game.result(state, moves[i], compute_moves=False), height,
+                game.result(state, min_moves[i], compute_moves=False), height,
                 depth - 1, alpha=alpha, beta=beta
             )
-            if value == -1000 or value == 1000:
-                print('heremin')
-                losing_moves.append(moves[i])
+            if value == -1000 and depth == 1:
+                losing_moves.append(min_moves[i])
             if value < v:
                 v = value
-                moves[:] = [moves[i]] + moves[:i] + moves[i + 1:]
-            if v <= alpha:
-                tt.store_exp_entry(state, moves, v, height)
-                return v
+                min_moves[:] = (
+                    [min_moves[i]] + min_moves[:i] + min_moves[i + 1:]
+                )
+                if v <= alpha:
+                    return v
             beta = min(beta, v)
             if kill.is_set():
                 break
-        tt.store_exp_entry(state, moves, v, height)
+        tt.store_exp_entry(state, v, min_moves, height)
         return v
 
     global BEST_MOVE
-    best_score = -INF
-    beta = INF
     best_move = None
     moves = state.moves
     color = state.to_move
-    for current_depth in range(0, max_depth + 1, 1):
+    for current_depth in range(0, 1, 1):
         if kill.is_set():
             print(f'QUITTING MINIMAX AT DEPTH {current_depth}')
             break
         losing_moves = []
+        best_score = -INF
+        beta = INF
         for i in range(len(moves)):
             print(moves[i])
             v = min_value(
@@ -342,7 +351,9 @@ def minimax_alphabeta(kill, game, state, max_depth, tt):
                     f'WITHOUT FINISHING MOVES ANALYSIS'
                 )
                 break
+        print(f'fine depth: {current_depth}')
         print(losing_moves)
+        print()
         moves = [m for m in moves if m not in losing_moves]
 
     return best_move
@@ -610,12 +621,12 @@ def random_player(kill, game, state, **kwargs):
     return get_random_move(state, seed=game.turn)
 
 
-def minimax_player(kill, game, state, max_depth, tt, **kwargs):
+def minimax_player(kill, game, state, max_depth, tt, heu_tt, **kwargs):
     '''
     Iterative deepening minimax player with alpha-beta pruning and
     transposition tables
     '''
-    return minimax_alphabeta(kill, game, state, max_depth, tt)
+    return minimax_alphabeta(kill, game, state, max_depth, tt, heu_tt)
 
 
 def negamax_player(kill, game, state, max_depth=4, **kwargs):
