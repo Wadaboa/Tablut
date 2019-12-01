@@ -148,18 +148,17 @@ def autoplay(gui):
     '''
     game = TablutGame()
     game_state = game.initial
-    game_state = test_state()
-    game.turn = 10
     heu.print_heuristic(game, game_state)
     update_gui(gui, game_state.pawns)
     white_ttable = strat.TT()
     black_ttable = strat.TT()
     heu_tt = strat.TT()
     while not game_state.is_terminal:
-        black_ttable.clear()
-        white_ttable.clear()
         if game.turn % 10 == 0:
             heu_tt.clear()
+        if game.turn % 5 == 0:
+            black_ttable.clear()
+            white_ttable.clear()
         game.inc_turn()
         print(f'Turn {game.turn}')
         white_move = get_move(
@@ -168,7 +167,6 @@ def autoplay(gui):
             heu_tt=heu_tt, max_it=1000
         )
         print(f'White move: {white_move}')
-        return
         game_state = game.result(game_state, white_move)
         heu.print_heuristic(game, game_state)
         update_gui(gui, game_state.pawns)
@@ -226,6 +224,10 @@ def play():
             heu.print_heuristic(game, game_state)
         elapsed_time = 0
         while not game_state.is_terminal:
+            if game.turn % 10 == 0:
+                heu_tt.clear()
+            if game.turn % 5 == 0:
+                ttable.clear()
             game.inc_turn()
             print(f'Turn {game.turn}')
             conf.MOVE_TIMEOUT = (
