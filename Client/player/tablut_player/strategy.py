@@ -619,7 +619,7 @@ def get_move(game, state, player, prev_move=None, **kwargs):
     global BEST_MOVE
     BEST_MOVE = None
     try:
-        player = utils.timeout(conf.MOVE_TIMEOUT)(player)
+        start = timeit.default_timer()
         move = (
             first_move(state, prev_move) if game.turn < 2
             else black_survival(state) if (
@@ -627,6 +627,8 @@ def get_move(game, state, player, prev_move=None, **kwargs):
             )
             else white_survival(game, state)
         )
+        elapsed = timeit.default_timer() - start
+        player = utils.timeout(conf.MOVE_TIMEOUT - elapsed)(player)
         move = (
             move if move is not None
             else player(game, state, **kwargs)
