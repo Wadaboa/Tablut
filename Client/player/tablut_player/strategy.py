@@ -246,21 +246,18 @@ def minimax_alphabeta(kill, game, state, max_depth, tt, heu_tt):
 
         if entry is not None and entry.height == depth:
             value = entry.value
-            print(f'TT_MAX:{value}')
             return value
         elif alphabeta_cutoff(kill, state, depth):
             heu_entry = heu_tt.get_entry(state)
             if heu_entry is not None:
                 value = heu_entry.value
-                print(f'HEU_TT_MAX:{value}')
             else:
                 value = heu.heuristic(game, state, color)
                 heu_tt.store_exp_entry(state, value)
-                print(f'HEU_MAX:{value}')
             return value
         v = -INF
-        for i in range(len(max_moves)):
-            print(max_moves[i])
+        max_beam = int(len(max_moves) / 2)
+        for i in range(max_beam):
             value = min_value(
                 game.result(state, max_moves[i], compute_moves=False),
                 depth - 1, alpha=alpha, beta=beta
@@ -288,21 +285,18 @@ def minimax_alphabeta(kill, game, state, max_depth, tt, heu_tt):
 
         if entry is not None and entry.height == depth:
             value = entry.value
-            print(f'TT_MIN:{value}')
             return value
         elif alphabeta_cutoff(kill, state, depth):
             heu_entry = heu_tt.get_entry(state)
             if heu_entry is not None:
                 value = heu_entry.value
-                print(f'HEU_TT_MIN:{value}')
             else:
                 value = heu.heuristic(game, state, color)
                 heu_tt.store_exp_entry(state, value)
-                print(f'HEU_MIN:{value}')
             return value
         v = INF
-        for i in range(len(min_moves)):
-            print(min_moves[i])
+        min_beam = int(len(min_moves) / 2)
+        for i in range(min_beam):
             value = max_value(
                 game.result(state, min_moves[i], compute_moves=False),
                 depth - 1, alpha=alpha, beta=beta
@@ -327,40 +321,43 @@ def minimax_alphabeta(kill, game, state, max_depth, tt, heu_tt):
     moves = state.moves
     color = state.to_move
     initial_move = None
-    for current_depth in range(0, max_depth + 1, 1):
+    for current_depth in range(0, max_depth + 1, 2):
         if kill.is_set():
-            print(f'QUITTING MINIMAX AT DEPTH {current_depth}')
             break
         losing_moves = []
         best_score = -INF
         beta = INF
-        for i in range(len(moves)):
+        beam = len(moves)
+        if current_depth != 0:
+            beam = int(beam / 2)
+        if conf.DEBUG:
+            print(f'Minimax depth: {current_depth} / Beam: {beam}')
+        for i in range(beam):
             initial_move = moves[i]
-            print(moves[i])
             v = min_value(
                 game.result(state, moves[i], compute_moves=False),
                 current_depth, alpha=best_score, beta=beta
             )
+            if conf.DEBUG:
+                print(f'Move {moves[i]} -> {v}')
             if v > best_score:
                 best_score = v
                 best_move = moves[i]
                 BEST_MOVE = moves[i]
                 if current_depth == 0 and best_score == 1000:
-                    print('QUITTING MINIMAX, FOUND WINNING MOVE')
                     return best_move
                 if not kill.is_set():
                     moves[:] = [moves[i]] + moves[:i] + moves[i + 1:]
             if kill.is_set():
-                print(
-                    f'QUITTING MINIMAX AT DEPTH {current_depth}, '
-                    f'WITHOUT FINISHING MOVES ANALYSIS'
-                )
                 break
-        print(f'fine depth: {current_depth}')
-        print(f'losing moves: {losing_moves}')
-        print()
+        if conf.DEBUG:
+            print(f'Best move at depth {current_depth}: {best_move}')
+            print(f'Losing moves at depth {current_depth}: {losing_moves}')
+            print()
         moves = [m for m in moves if m not in losing_moves]
 
+    if conf.DEBUG:
+        print(f'Best move: {best_move}')
     return best_move
 
 

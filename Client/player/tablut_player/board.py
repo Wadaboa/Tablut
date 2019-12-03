@@ -315,16 +315,18 @@ class TablutBoard():
             return max_moves + 1
         moves_counter = []
         for move in moves:
-            moves_counter.append(
-                cls.simulate_distance(
-                    pawns,
-                    move,
-                    final_coords,
-                    max_moves,
-                    unwanted_positions,
-                    n_moves + 1
+            if (initial_coords.distance(final_coords) >
+                    move.distance(final_coords)):
+                moves_counter.append(
+                    cls.simulate_distance(
+                        pawns,
+                        move,
+                        final_coords,
+                        max_moves,
+                        unwanted_positions,
+                        n_moves + 1
+                    )
                 )
-            )
         min_moves = max_moves + 1
         if len(moves_counter) > 0:
             min_moves = min(moves_counter)

@@ -148,7 +148,9 @@ def autoplay(gui):
     '''
     game = TablutGame()
     game_state = game.initial
-    heu.print_heuristic(game, game_state)
+    if conf.DEBUG:
+        print(game_state)
+        heu.print_heuristic(game, game_state)
     update_gui(gui, game_state.pawns)
     white_ttable = strat.TT()
     black_ttable = strat.TT()
@@ -160,15 +162,19 @@ def autoplay(gui):
             black_ttable.clear()
             white_ttable.clear()
         game.inc_turn()
-        print(f'Turn {game.turn}')
+        if conf.DEBUG:
+            print(f'Turn {game.turn}')
         white_move = get_move(
             game, game_state, conf.WHITE_PLAYER, prev_move=None,
             timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=white_ttable,
             heu_tt=heu_tt, max_it=1000
         )
-        print(f'White move: {white_move}')
+        if conf.DEBUG:
+            print(f'White move: {white_move}')
         game_state = game.result(game_state, white_move)
-        heu.print_heuristic(game, game_state)
+        if conf.DEBUG:
+            print(game_state)
+            heu.print_heuristic(game, game_state)
         update_gui(gui, game_state.pawns)
         if game_state.is_terminal:
             break
@@ -177,9 +183,12 @@ def autoplay(gui):
             timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=black_ttable,
             heu_tt=heu_tt, max_it=1000
         )
-        print(f'Black move: {black_move}')
+        if conf.DEBUG:
+            print(f'Black move: {black_move}')
         game_state = game.result(game_state, black_move)
-        heu.print_heuristic(game, game_state)
+        if conf.DEBUG:
+            print(game_state)
+            heu.print_heuristic(game, game_state)
         update_gui(gui, game_state.pawns)
     if game_state.is_terminal:
         winner = game.utility(
@@ -196,8 +205,9 @@ def play():
     '''
     game = TablutGame()
     game_state = game.initial
-    print(game_state)
-    heu.print_heuristic(game, game_state)
+    if conf.DEBUG:
+        print(game_state)
+        heu.print_heuristic(game, game_state)
     ttable = strat.TT()
     heu_tt = strat.TT()
     enemy_move = None
@@ -218,10 +228,12 @@ def play():
             enemy_move = gutils.from_pawns_to_move(
                 game_state.pawns, pawns, game_state.to_move
             )
-            print(f'Enemy move: {enemy_move}')
+            if conf.DEBUG:
+                print(f'Enemy move: {enemy_move}')
             game_state = game.result(game_state, enemy_move)
-            print(game_state)
-            heu.print_heuristic(game, game_state)
+            if conf.DEBUG:
+                print(game_state)
+                heu.print_heuristic(game, game_state)
         elapsed_time = 0
         while not game_state.is_terminal:
             if game.turn % 10 == 0:
@@ -229,7 +241,8 @@ def play():
             if game.turn % 5 == 0:
                 ttable.clear()
             game.inc_turn()
-            print(f'Turn {game.turn}')
+            if conf.DEBUG:
+                print(f'Turn {game.turn}')
             conf.MOVE_TIMEOUT = (
                 conf.GIVEN_MOVE_TIMEOUT - conf.MOVE_TIME_OVERHEAD - elapsed_time
             )
@@ -238,25 +251,29 @@ def play():
                 timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=ttable,
                 heu_tt=heu_tt, max_it=1000
             )
-            print(f'My move: {my_move}')
+            if conf.DEBUG:
+                print(f'My move: {my_move}')
             start_time = timeit.default_timer()
             action_queue.put((my_move, game_state.to_move))
             action_queue.join()
             get_state(state_queue)
             game_state = game.result(game_state, my_move)
             elapsed_time = timeit.default_timer() - start_time
-            print(game_state)
-            heu.print_heuristic(game, game_state)
+            if conf.DEBUG:
+                print(game_state)
+                heu.print_heuristic(game, game_state)
             if game_state.is_terminal:
                 break
             pawns, _ = get_state(state_queue)
             enemy_move = gutils.from_pawns_to_move(
                 game_state.pawns, pawns, game_state.to_move
             )
-            print(f'Enemy move: {enemy_move}')
+            if conf.DEBUG:
+                print(f'Enemy move: {enemy_move}')
             game_state = game.result(game_state, enemy_move)
-            print(game_state)
-            heu.print_heuristic(game, game_state)
+            if conf.DEBUG:
+                print(game_state)
+                heu.print_heuristic(game, game_state)
     except Exception:
         print(traceback.format_exc())
     finally:
@@ -267,9 +284,11 @@ def play():
         winner = game.utility(
             game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
         )
-        print('WIN' if winner == 1 else 'LOSE' if winner == -1 else 'DRAW')
+        if conf.DEBUG:
+            print('WIN' if winner == 1 else 'LOSE' if winner == -1 else 'DRAW')
     else:
-        print('ERROR')
+        if conf.DEBUG:
+            print('ERROR')
 
 
 def update_gui(gui, pawns):

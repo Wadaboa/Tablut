@@ -455,16 +455,16 @@ def compute_reachable_corners(pawn, pawns):
 
 HEURISTICS = {
     blocked_goals: 1.5,
-    piece_difference: 3,
+    piece_difference: 5,
     potential_kills: 0.5,
-    king_moves_to_goals: 2,
-    king_killers: 1,
+    king_moves_to_goals: 1.5,
+    king_killers: 0.5,
     black_blocking_chains: 6,
-    pawns_in_corners: 0.5,
+    pawns_in_corners: 0.2,
     white_barriers: 10
 }
 
-MAX_KING_MOVES_GOALS = 4
+MAX_KING_MOVES_GOALS = 3
 CORNERS_INDEXES = [0, conf.BOARD_SIZE - 1]
 CORNERS = [TBPos(i, j) for i in CORNERS_INDEXES for j in CORNERS_INDEXES]
 
@@ -501,7 +501,7 @@ def heuristic(game, state, color=None):
         value = heu(state)
         if value != 0.0:
             good_weights += weigth
-        score += value * weigth
+        score += value * weigth + utils.random_perturbation(radius=0.001)
     return (
         int((score * 100) / good_weights) if good_weights > 0
         else int(score * 100)
