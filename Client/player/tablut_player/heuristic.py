@@ -463,6 +463,10 @@ HEURISTICS = {
     pawns_in_corners: 16.810826190117748,
     white_barriers: 15.178031106456906
 }
+WHITE_WEIGHTS = [11.779971094673504, 5, 0.5, 12.068932593461732,
+                 16.671460551893787, 6, 16.810826190117748, 15.178031106456906]
+BLACK_WEIGHTS = [1.5, 6.49932607360774, 0.5, 12.068932593461732,
+                 0.5, 6, 16.810826190117748, 15.178031106456906]
 
 MAX_KING_MOVES_GOALS = 3
 CORNERS_INDEXES = [0, conf.BOARD_SIZE - 1]
@@ -497,6 +501,10 @@ def heuristic(game, state, color=None):
         return -999
     good_weights = 0
     score = 0.0
+    if gutils.other_player(state.to_move) == TPlayerType.WHITE:
+        set_heuristic_weights(WHITE_WEIGHTS)
+    else:
+        set_heuristic_weights(BLACK_WEIGHTS)
     for heu, weigth in HEURISTICS.items():
         value = heu(state)
         if value != 0.0:

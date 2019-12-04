@@ -238,15 +238,18 @@ def minimax_alphabeta(kill, game, state, max_depth, tt, heu_tt):
 
     def order_moves(state, initial_moves=None, depth=None):
         if initial_moves is None:
-            initial_moves = state.moves
+            initial_moves = list(state.moves)
         beam = len(initial_moves)
         if depth is None or depth % 2 != 0:
             beam = int(beam / 2)
-        best_moves = initial_moves[:beam]
+        best_move = initial_moves[0]
+        best_moves = initial_moves[1:beam]
         near_king_moves, best_moves = TablutBoard.near_king_moves(
             state.pawns, initial_moves, best_moves
         )
-        return near_king_moves + best_moves
+        if best_move in near_king_moves:
+            near_king_moves.remove(best_move)
+        return [best_move] + near_king_moves + best_moves
 
     def max_value(state, depth, alpha, beta):
         entry = tt.get_entry(state)
@@ -254,7 +257,7 @@ def minimax_alphabeta(kill, game, state, max_depth, tt, heu_tt):
             entry.moves if entry is not None and entry.moves is not None
             else game.player_moves(state.pawns, state.to_move)
         )
-        max_moves = state.moves
+        max_moves = list(state.moves)
 
         if entry is not None and entry.height == depth:
             value = entry.value
@@ -293,7 +296,7 @@ def minimax_alphabeta(kill, game, state, max_depth, tt, heu_tt):
             entry.moves if entry is not None and entry.moves is not None
             else game.player_moves(state.pawns, state.to_move)
         )
-        min_moves = state.moves
+        min_moves = list(state.moves)
 
         if entry is not None and entry.height == depth:
             value = entry.value
@@ -332,13 +335,13 @@ def minimax_alphabeta(kill, game, state, max_depth, tt, heu_tt):
     best_move = None
     color = state.to_move
     initial_move = None
+    current_moves = list(state.moves)
     for current_depth in range(0, max_depth + 1, 2):
         if kill.is_set():
             break
         losing_moves = []
         best_score = -INF
         beta = INF
-        current_moves = state.moves
         if current_depth != 0:
             current_moves = order_moves(state, initial_moves=current_moves)
         if conf.DEBUG:
