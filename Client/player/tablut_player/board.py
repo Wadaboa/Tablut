@@ -82,6 +82,22 @@ class TablutBoard():
         return moves
 
     @classmethod
+    def near_king_moves(cls, pawns, moves, unwanted_moves):
+        '''
+        Return a new list of moves near the king
+        '''
+        new_moves = []
+        king = cls.king_position(pawns)
+        king_neighbors = cls.unique_full_k_neighbors(king)
+        for move in moves:
+            _, to_move = move
+            if to_move in king_neighbors:
+                new_moves.append(move)
+                if move in unwanted_moves:
+                    unwanted_moves.remove(move)
+        return new_moves, unwanted_moves
+
+    @classmethod
     def legal_moves(cls, pawns, pawn_coords):
         '''
         Return a set of TablutBoardPosition representing every possibile

@@ -454,14 +454,14 @@ def compute_reachable_corners(pawn, pawns):
 
 
 HEURISTICS = {
-    blocked_goals: 1.5,
+    blocked_goals: 11.779971094673504,
     piece_difference: 5,
     potential_kills: 0.5,
-    king_moves_to_goals: 1.5,
-    king_killers: 0.5,
+    king_moves_to_goals: 12.068932593461732,
+    king_killers: 16.671460551893787,
     black_blocking_chains: 6,
-    pawns_in_corners: 0.2,
-    white_barriers: 10
+    pawns_in_corners: 16.810826190117748,
+    white_barriers: 15.178031106456906
 }
 
 MAX_KING_MOVES_GOALS = 3

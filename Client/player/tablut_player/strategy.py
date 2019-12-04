@@ -236,6 +236,18 @@ def minimax_alphabeta(kill, game, state, max_depth, tt, heu_tt):
     Iterative deepening minimax with alpha-beta pruning and transposition tables
     '''
 
+    def order_moves(state, initial_moves=None, depth=None):
+        if initial_moves is None:
+            initial_moves = state.moves
+        beam = len(initial_moves)
+        if depth is None or depth % 2 != 0:
+            beam = int(beam / 2)
+        best_moves = initial_moves[:beam]
+        near_king_moves, best_moves = TablutBoard.near_king_moves(
+            state.pawns, initial_moves, best_moves
+        )
+        return near_king_moves + best_moves
+
     def max_value(state, depth, alpha, beta):
         entry = tt.get_entry(state)
         state.moves = (
@@ -256,8 +268,8 @@ def minimax_alphabeta(kill, game, state, max_depth, tt, heu_tt):
                 heu_tt.store_exp_entry(state, value)
             return value
         v = -INF
-        max_beam = int(len(max_moves) / 2)
-        for i in range(max_beam):
+        max_moves = order_moves(state, depth=depth)
+        for i in range(len(max_moves)):
             value = min_value(
                 game.result(state, max_moves[i], compute_moves=False),
                 depth - 1, alpha=alpha, beta=beta
@@ -295,8 +307,8 @@ def minimax_alphabeta(kill, game, state, max_depth, tt, heu_tt):
                 heu_tt.store_exp_entry(state, value)
             return value
         v = INF
-        min_beam = int(len(min_moves) / 2)
-        for i in range(min_beam):
+        min_moves = order_moves(state, depth=depth)
+        for i in range(len(min_moves)):
             value = max_value(
                 game.result(state, min_moves[i], compute_moves=False),
                 depth - 1, alpha=alpha, beta=beta
@@ -318,7 +330,6 @@ def minimax_alphabeta(kill, game, state, max_depth, tt, heu_tt):
 
     global BEST_MOVE
     best_move = None
-    moves = state.moves
     color = state.to_move
     initial_move = None
     for current_depth in range(0, max_depth + 1, 2):
@@ -327,34 +338,40 @@ def minimax_alphabeta(kill, game, state, max_depth, tt, heu_tt):
         losing_moves = []
         best_score = -INF
         beta = INF
-        beam = len(moves)
+        current_moves = state.moves
         if current_depth != 0:
-            beam = int(beam / 2)
+            current_moves = order_moves(state, initial_moves=current_moves)
         if conf.DEBUG:
-            print(f'Minimax depth: {current_depth} / Beam: {beam}')
-        for i in range(beam):
-            initial_move = moves[i]
+            print(
+                f'Minimax depth: {current_depth} / Beam: {len(current_moves)}'
+            )
+        for i in range(len(current_moves)):
+            initial_move = current_moves[i]
             v = min_value(
-                game.result(state, moves[i], compute_moves=False),
+                game.result(state, current_moves[i], compute_moves=False),
                 current_depth, alpha=best_score, beta=beta
             )
             if conf.DEBUG:
-                print(f'Move {moves[i]} -> {v}')
+                print(f'Move {current_moves[i]} -> {v}')
             if v > best_score:
                 best_score = v
-                best_move = moves[i]
-                BEST_MOVE = moves[i]
+                best_move = current_moves[i]
+                BEST_MOVE = current_moves[i]
                 if current_depth == 0 and best_score == 1000:
                     return best_move
                 if not kill.is_set():
-                    moves[:] = [moves[i]] + moves[:i] + moves[i + 1:]
+                    current_moves[:] = (
+                        [current_moves[i]] +
+                        current_moves[:i] +
+                        current_moves[i + 1:]
+                    )
             if kill.is_set():
                 break
         if conf.DEBUG:
             print(f'Best move at depth {current_depth}: {best_move}')
             print(f'Losing moves at depth {current_depth}: {losing_moves}')
             print()
-        moves = [m for m in moves if m not in losing_moves]
+        current_moves = [m for m in current_moves if m not in losing_moves]
 
     if conf.DEBUG:
         print(f'Best move: {best_move}')
