@@ -11,6 +11,7 @@ If everything went fine, now you should be able to execute the player
 by running `tablut_player` on your terminal.
 
 ## GUI
+The following GUI has been implemented using `PyQt5`:\
 ![GUI](img/client-gui.png)
 
 ## Usage
@@ -73,3 +74,16 @@ The following snippet will launch the genetic algorithm with 10 generations and 
 ```bash
 tablut_player White -g 10 20 -p minimax
 ```
+
+## Players
+We've implemented the following state-space search algorithms:
+1. `random`: Selects a random legal move
+1. `minimax`: Iterative deepening beam minimax search with alpha-beta pruning and transposition tables. It does work good in a 3-ply search, while deeper searches are too computationally expensive.
+2. `negamax`: Simple negamax with alpha-beta pruning, implemented in a fail-soft way, which means that if it fails it still returns the best result found so far. The fail-hard version would only return either alpha or beta.
+3. `negascout`: Negascout with alpha-beta pruning
+4. `montecarlo`: Monte Carlo tree search
+
+## Genetic algorithm
+The genetic algorithm is used to learn heuristic weights, which are related to the `minimax` player.
+This algorithm will generate the given amount of players, with different heuristic weights, and will make them play one against each other in a tournament. The best players of a tournament, selected by a fitness function which is their number of wins, have a higher probability of being selected for the next tournament, which is played by a new population. The algorithm will repeat this process for the given amount of generations.\
+This algorithm will produce a `.log` file inside the `train/` folder in the parent directory, which will contain every population generated and every tournament outcome. The last population will hopefully contain the best overall player.

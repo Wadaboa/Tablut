@@ -25,6 +25,6 @@ Make sure your current working directory is the `Client/scripts/unix/` (`Client/
 2. Timeout: Given time to compute each move
 3. Server address: IP address where the server is running
 
-If you are on Windows you might need to do the same exection policy setting and restore, as specified above, before and after running the script.
+If you are on Windows you might need to do the same execution policy setting and restore, as specified above, before and after running the script.
 
 For example, you could execute the client with a command like `./CalbiFalai.sh White 60 127.0.0.1` (`.\CalbiFalai.ps1 White 60 127.0.0.1`).
