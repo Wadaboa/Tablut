@@ -394,7 +394,7 @@ def failsoft_negamax_alphabeta(kill, game, state, max_depth,
 
     def negamax(state, depth, alpha, beta):
         if alphabeta_cutoff(kill, state, depth):
-            return heu.heuristic(game, state, color), None
+            return heu.heuristic(game, state, symm=True), None
         best_move = None
         best_value = -INF
         for move in game.actions(state):
@@ -417,7 +417,6 @@ def failsoft_negamax_alphabeta(kill, game, state, max_depth,
         return best_value, best_move
 
     global BEST_MOVE
-    color = state.to_move
     _, move = negamax(state, max_depth, alpha=alpha, beta=beta)
     return move
 
@@ -432,11 +431,11 @@ def negascout_alphabeta(kill, game, state, max_depth, alpha=-INF, beta=INF):
 
     def negascout(state, depth, alpha, beta):
         if alphabeta_cutoff(kill, state, depth):
-            return heu.heuristic(game, state, color), None
+            return heu.heuristic(game, state, symm=True), None
         best_move = None
         best_value = -INF
         adaptive_beta = beta
-        for move in game.moves(state):
+        for move in game.actions(state):
             new_state = game.result(state, move)
             recursed_value, _ = negascout(
                 state=new_state,
@@ -466,7 +465,6 @@ def negascout_alphabeta(kill, game, state, max_depth, alpha=-INF, beta=INF):
         return best_value, best_move
 
     global BEST_MOVE
-    color = state.to_move
     _, move = negascout(state, max_depth, alpha=alpha, beta=beta)
     return move
 

@@ -5,7 +5,6 @@ Utility functions
 
 import copy as cp
 import time
-import timeit
 import random
 import threading
 from functools import wraps
@@ -125,33 +124,6 @@ def run_once(func):
             wrapper._once_result = func(*args, **kwargs)
             return wrapper._once_result
     return wrapper
-
-
-"""
-def timing(doc):
-    '''
-    Decorator that computes the decorated function running time.
-    '''
-    def decorate(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> RT:
-            start = timeit.default_timer()
-            ret = func(*args, **kwargs)
-            end = timeit.default_timer()
-            elapsed = end - start
-            # Add runtime to benchmarks, if function already present
-            for bench in doc.benchmarks:
-                if bench.func_name == func.__name__:
-                    bench.add_runtime(elapsed)
-                    return ret
-            # Add function and runtime to benchmarks, if function not present
-            bench = qiocr._qiocr.Benchmark(func.__name__)
-            bench.add_runtime(elapsed)
-            doc.benchmarks.append(bench)
-            return ret
-        return wrapper
-    return decorate
-"""
 
 
 class InterruptableThread(threading.Thread):

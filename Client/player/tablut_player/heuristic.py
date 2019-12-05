@@ -483,12 +483,15 @@ def set_heuristic_weights(weights):
 
 
 def print_heuristic(game, state):
+    '''
+    Print heuristic functions values for the given state
+    '''
     print(f'VALUE: {heuristic(game, state)}')
     for heur in HEURISTICS:
         print(f'{heur.__name__}: {heur(state)}')
 
 
-def heuristic(game, state, color=None):
+def heuristic(game, state, color=None, symm=False):
     '''
     Game state evaluation function, in range [-100, 100].
     Values 1000 and -1000 are used as winning and losing scores
@@ -501,10 +504,11 @@ def heuristic(game, state, color=None):
         return -999
     good_weights = 0
     score = 0.0
-    if gutils.other_player(state.to_move) == TPlayerType.WHITE:
-        set_heuristic_weights(WHITE_WEIGHTS)
-    else:
-        set_heuristic_weights(BLACK_WEIGHTS)
+    if not symm:
+        if gutils.other_player(state.to_move) == TPlayerType.WHITE:
+            set_heuristic_weights(WHITE_WEIGHTS)
+        else:
+            set_heuristic_weights(BLACK_WEIGHTS)
     for heu, weigth in HEURISTICS.items():
         value = heu(state)
         if value != 0.0:

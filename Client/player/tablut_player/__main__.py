@@ -8,7 +8,6 @@ import sys
 import threading
 import traceback
 import timeit
-import time
 from multiprocessing import JoinableQueue
 
 from PyQt5 import QtWidgets
@@ -18,7 +17,7 @@ import tablut_player.game_utils as gutils
 import tablut_player.strategy as strat
 import tablut_player.genetic as gen
 import tablut_player.heuristic as heu
-from tablut_player.board import TablutBoardGUI, TablutBoard
+from tablut_player.board import TablutBoardGUI
 from tablut_player.game import TablutGame
 from tablut_player.strategy import get_move
 from tablut_player.connector import Connector
@@ -169,10 +168,9 @@ def autoplay(gui):
             timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=white_ttable,
             heu_tt=heu_tt, max_it=1000
         )
-        if conf.DEBUG:
-            print(f'White move: {white_move}')
         game_state = game.result(game_state, white_move)
         if conf.DEBUG:
+            print(f'White move: {white_move}')
             print(game_state)
             heu.print_heuristic(game, game_state)
         update_gui(gui, game_state.pawns)
@@ -183,21 +181,20 @@ def autoplay(gui):
             timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=black_ttable,
             heu_tt=heu_tt, max_it=1000
         )
-        if conf.DEBUG:
-            print(f'Black move: {black_move}')
         game_state = game.result(game_state, black_move)
         if conf.DEBUG:
+            print(f'Black move: {black_move}')
             print(game_state)
             heu.print_heuristic(game, game_state)
         update_gui(gui, game_state.pawns)
-    if game_state.is_terminal:
-        winner = game.utility(
-            game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
-        )
-        if conf.DEBUG:
+
+    if conf.DEBUG:
+        if game_state.is_terminal:
+            winner = game.utility(
+                game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
+            )
             print('WIN' if winner == 1 else 'LOSE' if winner == -1 else 'DRAW')
-    else:
-        if conf.DEBUG:
+        else:
             print('ERROR')
 
 
@@ -230,10 +227,9 @@ def play():
             enemy_move = gutils.from_pawns_to_move(
                 game_state.pawns, pawns, game_state.to_move
             )
-            if conf.DEBUG:
-                print(f'Enemy move: {enemy_move}')
             game_state = game.result(game_state, enemy_move)
             if conf.DEBUG:
+                print(f'Enemy move: {enemy_move}')
                 print(game_state)
                 heu.print_heuristic(game, game_state)
         elapsed_time = 0
@@ -253,8 +249,6 @@ def play():
                 timeout=conf.MOVE_TIMEOUT, max_depth=4, tt=ttable,
                 heu_tt=heu_tt, max_it=1000
             )
-            if conf.DEBUG:
-                print(f'My move: {my_move}')
             start_time = timeit.default_timer()
             action_queue.put((my_move, game_state.to_move))
             action_queue.join()
@@ -262,6 +256,7 @@ def play():
             game_state = game.result(game_state, my_move)
             elapsed_time = timeit.default_timer() - start_time
             if conf.DEBUG:
+                print(f'My move: {my_move}')
                 print(game_state)
                 heu.print_heuristic(game, game_state)
             if game_state.is_terminal:
@@ -270,10 +265,9 @@ def play():
             enemy_move = gutils.from_pawns_to_move(
                 game_state.pawns, pawns, game_state.to_move
             )
-            if conf.DEBUG:
-                print(f'Enemy move: {enemy_move}')
             game_state = game.result(game_state, enemy_move)
             if conf.DEBUG:
+                print(f'Enemy move: {enemy_move}')
                 print(game_state)
                 heu.print_heuristic(game, game_state)
     except Exception:
@@ -283,23 +277,28 @@ def play():
         conn.terminate()
         conn.join()
 
-    if game_state.is_terminal:
-        winner = game.utility(
-            game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
-        )
-        if conf.DEBUG:
+    if conf.DEBUG:
+        if game_state.is_terminal:
+            winner = game.utility(
+                game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
+            )
             print('WIN' if winner == 1 else 'LOSE' if winner == -1 else 'DRAW')
-    else:
-        if conf.DEBUG:
+        else:
             print('ERROR')
 
 
 def update_gui(gui, pawns):
+    '''
+    Update the GUI with the given pawns
+    '''
     if gui is not None:
         gui.set_pawns(pawns)
 
 
 def get_state(queue):
+    '''
+    Get a new state from the server or raise an exception if an error occurred
+    '''
     elem = queue.get()
     queue.task_done()
     if not isinstance(elem, tuple):
