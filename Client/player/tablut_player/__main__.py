@@ -194,9 +194,11 @@ def autoplay(gui):
         winner = game.utility(
             game_state, gutils.from_player_role_to_type(conf.PLAYER_ROLE)
         )
-        print('WIN' if winner == 1 else 'LOSE' if winner == -1 else 'DRAW')
+        if conf.DEBUG:
+            print('WIN' if winner == 1 else 'LOSE' if winner == -1 else 'DRAW')
     else:
-        print('ERROR')
+        if conf.DEBUG:
+            print('ERROR')
 
 
 def play():
@@ -275,7 +277,8 @@ def play():
                 print(game_state)
                 heu.print_heuristic(game, game_state)
     except Exception:
-        print(traceback.format_exc())
+        if conf.DEBUG:
+            print(traceback.format_exc())
     finally:
         conn.terminate()
         conn.join()
